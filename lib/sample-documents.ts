@@ -1,0 +1,33 @@
+export const sampleLetter = {
+  id: "auslaenderbehoerde-missing-documents",
+  title: "Ausländerbehörde: appointment and missing documents",
+  authority: "Ausländerbehörde Musterstadt",
+  text: `Ausländerbehörde Musterstadt
+Fachbereich Aufenthalt
+Beispielstraße 12
+12345 Musterstadt
+
+Aktenzeichen: ABH-2026-000471
+
+Betreff: Ihr Antrag auf Verlängerung des Aufenthaltstitels
+
+Sehr geehrte Antragstellerin, sehr geehrter Antragsteller,
+
+für die weitere Bearbeitung Ihres Antrags auf Verlängerung des Aufenthaltstitels benötigen wir noch Unterlagen.
+
+Bitte erscheinen Sie am 14.08.2026 um 09:30 Uhr im BürgerService Zentrum, Zimmer 204, Beispielstraße 12, 12345 Musterstadt.
+
+Bringen Sie bitte folgende Unterlagen mit:
+- gültiger Reisepass
+- aktuelles biometrisches Passfoto
+- Nachweis über ausreichenden Krankenversicherungsschutz
+- aktueller Mietvertrag oder Wohnungsgeberbestätigung
+- Einkommensnachweise der letzten drei Monate oder Immatrikulationsbescheinigung
+
+Sollten die Unterlagen nicht vollständig vorliegen, kann über Ihren Antrag nicht abschließend entschieden werden. Eine verspätete Einreichung kann zu Verzögerungen führen.
+
+Falls Sie den Termin nicht wahrnehmen können, teilen Sie uns dies bitte unverzüglich schriftlich mit.
+
+Mit freundlichen Grüßen
+Ausländerbehörde Musterstadt`,
+};

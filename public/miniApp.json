@@ -1,0 +1,26 @@
+{
+  "version": "2.0",
+  "fullScreen": true,
+  "theme": "app-default",
+  "statusBar": {
+    "theme": {
+      "light": {
+        "backgroundColor": "#ffffff"
+      },
+      "dark": {
+        "backgroundColor": "#ffffff"
+      }
+    }
+  },
+  "navigationBar": {
+    "visible": false,
+    "theme": {
+      "light": {
+        "backgroundColor": "#ffffff"
+      },
+      "dark": {
+        "backgroundColor": "#ffffff"
+      }
+    }
+  }
+}
