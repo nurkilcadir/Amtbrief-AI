@@ -5,10 +5,10 @@
   "statusBar": {
     "theme": {
       "light": {
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#F8FAFC"
       },
       "dark": {
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#111827"
       }
     }
   },
@@ -16,10 +16,10 @@
     "visible": false,
     "theme": {
       "light": {
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#F8FAFC"
       },
       "dark": {
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#111827"
       }
     }
   }

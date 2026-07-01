@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { FileText, Home, Landmark, Plus } from "lucide-react";
+import { markInternalNavigation } from "@/lib/client-open-intent";
 import { useLang } from "@/components/LanguageProvider";
 
 export function AppShell({
@@ -77,6 +78,7 @@ function BottomNavigation({
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={markInternalNavigation}
                 className="touch-target flex flex-col items-center justify-center"
               >
                 <span className={`flex h-12 w-12 items-center justify-center rounded-full shadow-action transition active:scale-95 ${active ? "bg-civic-700" : "bg-civic-600"}`}>
@@ -93,6 +95,7 @@ function BottomNavigation({
             <Link
               key={item.href}
               href={item.href}
+              onClick={markInternalNavigation}
               className={`touch-target flex flex-col items-center justify-center rounded-xl px-1 py-2 text-[10px] font-medium transition ${
                 active
                   ? "bg-civic-100 text-civic-700"

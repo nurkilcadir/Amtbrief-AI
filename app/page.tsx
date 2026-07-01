@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   AlertTriangle,
@@ -22,6 +22,10 @@ import { LegalNotes } from "@/components/LegalNotes";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { SecondaryButton } from "@/components/SecondaryButton";
 import { useAmtBrief } from "@/components/AmtBriefProvider";
+import {
+  consumeLocalChecklistOpenIntent,
+  wasRecentInternalNavigation,
+} from "@/lib/client-open-intent";
 import { useLang } from "@/components/LanguageProvider";
 import { getTaskHref, getTaskRisk } from "@/lib/task-actions";
 import { AnalysisResult, ReminderStatus, RiskLevel, ScanRecord } from "@/lib/types";
@@ -49,12 +53,14 @@ type HomeNextStep = {
 
 export default function HomePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { t } = useLang();
   const [authProfile, setAuthProfile] = useState<AuthProfile | null>(null);
   const {
     analysis,
     activeScanId,
     checklistCompleted,
+    isHydrated,
     loadSampleDocument,
     reminderStatus,
     scanHistory,
@@ -90,6 +96,62 @@ export default function HomePage() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!isHydrated || scanHistory.length === 0) return;
+
+    let cancelled = false;
+
+    function openScanChecklist(scanId: string) {
+      if (cancelled) return false;
+
+      const scanExists = scanHistory.some((scan) => scan.id === scanId);
+
+      if (!scanExists) return false;
+
+      selectScan(scanId);
+      router.replace(getScanSectionHref(scanId, "checklist"));
+      return true;
+    }
+
+    async function openPendingChecklistIntent() {
+      const queryScanId =
+        searchParams.get("open") === "checklist" ? searchParams.get("scanId") : null;
+
+      if (queryScanId && openScanChecklist(queryScanId)) {
+        return;
+      }
+
+      if (!wasRecentInternalNavigation()) {
+        const localIntent = consumeLocalChecklistOpenIntent();
+
+        if (localIntent?.scanId && openScanChecklist(localIntent.scanId)) {
+          return;
+        }
+      }
+
+      const response = await fetch("/api/chat/open-intent", {
+        cache: "no-store",
+      }).catch(() => null);
+
+      if (!response?.ok || cancelled) return;
+
+      const payload = (await response.json().catch(() => null)) as
+        | { intent?: { scanId?: string } | null }
+        | null;
+      const scanId = payload?.intent?.scanId;
+
+      if (!scanId || cancelled) return;
+
+      openScanChecklist(scanId);
+    }
+
+    void openPendingChecklistIntent();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isHydrated, router, scanHistory, searchParams, selectScan]);
 
   function trySampleLetter() {
     loadSampleDocument();

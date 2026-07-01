@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { getSampleLetterById, sampleLetter } from "@/lib/sample-documents";
+import { rememberLocalChecklistOpenIntent } from "@/lib/client-open-intent";
 import { normalizeAnalysis } from "@/lib/mock-ai";
 import type { ReminderCustomPoint } from "@/lib/reminders";
 import {
@@ -272,6 +273,8 @@ export function AmtBriefProvider({ children }: { children: React.ReactNode }) {
         reminderUpdatedAt: null,
         error: null,
       }));
+
+      void syncChecklistChatSummary(scan);
     } catch (error) {
       const remaining = Math.max(0, 2000 - (Date.now() - startedAt));
       await delay(remaining);
@@ -790,6 +793,37 @@ async function syncServerReminderStatus(
     });
 
     await assertReminderResponse(response, "Handled status could not be saved.");
+  }
+}
+
+async function syncChecklistChatSummary(scan: ScanRecord) {
+  try {
+    const response = await fetch("/api/chat/checklist-summary", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        analysis: scan.analysis,
+        documentText: scan.documentText,
+        scanId: scan.id,
+        sourceLabel: scan.sourceLabel,
+      }),
+    });
+
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as
+        | { error?: string }
+        | null;
+      console.warn(
+        `AmtBrief: checklist chat summary was not sent${
+          payload?.error ? `: ${payload.error}` : ""
+        }`,
+      );
+      return;
+    }
+
+    rememberLocalChecklistOpenIntent(scan.id);
+  } catch (error) {
+    console.warn("AmtBrief: checklist chat summary request failed", error);
   }
 }
 

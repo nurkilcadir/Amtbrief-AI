@@ -138,10 +138,18 @@ export default function InputPage() {
   const analyzeLabel = file
     ? t.input.analyzeBtn(getFileTypeLabel(fileInputType ?? "image", t.input))
     : t.input.analyzeBtnDefault;
+  const stickyAnalyzeLabel = analyzeLabel.replace(/\s*→$/, "");
+  const stickyHelper = getAnalyzeHelper({
+    canAnalyze,
+    fileInputType,
+    hasFile: Boolean(file),
+    textLength: trimmedLength,
+    textMode,
+  });
 
   return (
     <AppShell title={t.input.pageTitle} eyebrow="AmtBrief AI">
-      <div className="space-y-4">
+      <div className="space-y-4 pb-28">
         <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" onChange={(e) => handleFile(e, "camera")} aria-hidden="true" tabIndex={-1} className="hidden" />
         <input ref={pdfInputRef} type="file" accept="application/pdf" onChange={(e) => handleFile(e, "pdf")} aria-hidden="true" tabIndex={-1} className="hidden" />
         <input ref={imageInputRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => handleFile(e, "image")} aria-hidden="true" tabIndex={-1} className="hidden" />
@@ -214,12 +222,6 @@ export default function InputPage() {
           <section className="rounded-[16px] border border-rose-200 bg-roseSoft p-3 text-sm leading-5 text-rose-800">{error}</section>
         ) : null}
 
-        {canAnalyze ? (
-          <div className="grid gap-3 pb-2">
-            <PrimaryButton onClick={analyze}>{analyzeLabel}</PrimaryButton>
-          </div>
-        ) : null}
-
         <section className="app-card overflow-hidden">
           <button type="button" onClick={() => setSamplesOpen((v) => !v)} className="touch-target flex w-full items-center justify-between gap-3 p-4">
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
@@ -243,14 +245,50 @@ export default function InputPage() {
           ) : null}
         </section>
 
-        {!canAnalyze ? (
-          <div className="grid gap-3 pb-2">
-            <PrimaryButton onClick={analyze} disabled>{analyzeLabel}</PrimaryButton>
-          </div>
-        ) : null}
+      </div>
+      <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+82px)] left-1/2 z-20 w-full max-w-[430px] -translate-x-1/2 px-5">
+        <div className="rounded-[20px] border border-slate-200/90 bg-white/95 p-3 shadow-[0_-10px_30px_rgba(15,23,42,0.12)] backdrop-blur-xl">
+          <p className={`mb-2 text-center text-xs font-semibold leading-5 ${canAnalyze ? "text-emerald-700" : "text-slate-500"}`}>
+            {stickyHelper}
+          </p>
+          <PrimaryButton onClick={analyze} disabled={!canAnalyze}>
+            {stickyAnalyzeLabel}
+          </PrimaryButton>
+        </div>
       </div>
     </AppShell>
   );
+}
+
+function getAnalyzeHelper({
+  canAnalyze,
+  fileInputType,
+  hasFile,
+  textLength,
+  textMode,
+}: {
+  canAnalyze: boolean;
+  fileInputType: FileInputType | null;
+  hasFile: boolean;
+  textLength: number;
+  textMode: boolean;
+}) {
+  if (hasFile) {
+    if (fileInputType === "pdf") return "PDF ready to analyze";
+    if (fileInputType === "camera") return "Photo ready to analyze";
+    return "Image ready to analyze";
+  }
+
+  if (canAnalyze) {
+    return "Text ready to analyze";
+  }
+
+  if (textMode && textLength > 0) {
+    const remaining = Math.max(80 - textLength, 0);
+    return `Add ${remaining} more characters to analyze`;
+  }
+
+  return "Add a photo, PDF, image, or pasted text";
 }
 
 function SelectedFileCard({
