@@ -9,8 +9,6 @@ import {
   ChevronRight,
   FileText,
   ListChecks,
-  Plus,
-  ScanLine,
   ShieldAlert,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
@@ -60,37 +58,12 @@ export default function ScansPage() {
               Your analyzed official letters
             </p>
           </div>
-          <Link
-            href="/input"
-            aria-label="New scan"
-            className="touch-target flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-civic-600 text-white shadow-action active:scale-[0.98]"
-          >
-            <Plus className="h-5 w-5" />
-          </Link>
         </section>
 
         <section className="grid grid-cols-3 gap-2">
           <MetricCard label="Scans" value={String(scanHistory.length)} />
           <MetricCard label="Open steps" value={String(totalOpenCount)} />
           <MetricCard label="Done" value={`${progress}%`} />
-        </section>
-
-        <section className="rounded-[18px] border border-civic-200 bg-civic-100 p-4 shadow-soft">
-          <div className="flex gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-civic-700">
-              <ScanLine className="h-5 w-5" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-ink">
-                {scanHistory.length} scanned{" "}
-                {scanHistory.length === 1 ? "letter is" : "letters are"} ready
-              </p>
-              <p className="mt-1 text-xs leading-5 text-slate-600">
-                Open the document to review its summary, checklist, and German
-                reply draft.
-              </p>
-            </div>
-          </div>
         </section>
 
         <section className="space-y-3">
@@ -110,13 +83,6 @@ export default function ScansPage() {
           ))}
         </section>
 
-        <Link
-          href="/input"
-          className="touch-target inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-3 text-[15px] font-semibold text-slate-800 shadow-soft active:scale-[0.99]"
-        >
-          <Plus className="h-5 w-5 text-civic-600" />
-          New scan
-        </Link>
       </div>
     </AppShell>
   );

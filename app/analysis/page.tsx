@@ -1,24 +1,21 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import {
-  AlertTriangle,
-  FileText,
-  Loader2,
-} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { AlertTriangle, FileText, Loader2 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
-import { DocumentOverview } from "@/components/DocumentOverview";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { SecondaryButton } from "@/components/SecondaryButton";
 import { useAmtBrief } from "@/components/AmtBriefProvider";
+import { useLang } from "@/components/LanguageProvider";
 
 export default function AnalysisPage() {
+  const router = useRouter();
+  const { t } = useLang();
   const {
     analysis,
     analysisStatus,
-    sourceLabel,
     activeScanId,
-    scanHistory,
     documentFile,
     documentText,
     analyzeCurrentDocument,
@@ -26,6 +23,7 @@ export default function AnalysisPage() {
   } = useAmtBrief();
   const started = useRef(false);
   const hasPendingDocument = Boolean(documentText.trim()) || Boolean(documentFile);
+  const [messageIndex, setMessageIndex] = useState(0);
 
   useEffect(() => {
     if (started.current || analysis || !hasPendingDocument) return;
@@ -33,18 +31,38 @@ export default function AnalysisPage() {
     void analyzeCurrentDocument();
   }, [analysis, analyzeCurrentDocument, hasPendingDocument]);
 
+  useEffect(() => {
+    if (analysisStatus !== "loading") return;
+    const interval = setInterval(() => {
+      setMessageIndex((i) => Math.min(i + 1, t.analysis.loadingMessages.length - 1));
+    }, 2200);
+    return () => clearInterval(interval);
+  }, [analysisStatus, t.analysis.loadingMessages.length]);
+
+  useEffect(() => {
+    if (analysisStatus === "ready" && activeScanId) {
+      router.replace(`/scans/${activeScanId}/checklist`);
+    }
+  }, [analysisStatus, activeScanId, router]);
+
   const isLoading =
     analysisStatus === "loading" ||
     (analysisStatus === "idle" && !analysis && hasPendingDocument);
-  const activeScan =
-    activeScanId ? scanHistory.find((scan) => scan.id === activeScanId) : null;
 
   return (
-    <AppShell
-      title={analysis && !isLoading ? "Document Summary" : "AI analysis"}
-      eyebrow="AmtBrief AI"
-    >
-      {!hasPendingDocument && !analysis ? <EmptyAnalysis /> : null}
+    <AppShell title={t.analysis.pageTitle} eyebrow="AmtBrief AI">
+      {!hasPendingDocument && !analysis ? (
+        <section className="app-card p-5">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-civic-100 text-civic-700">
+            <FileText className="h-6 w-6" />
+          </div>
+          <h2 className="text-xl font-semibold text-ink">{t.analysis.emptyTitle}</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">{t.analysis.emptySubtitle}</p>
+          <div className="mt-5">
+            <PrimaryButton href="/input">{t.analysis.emptyBtn}</PrimaryButton>
+          </div>
+        </section>
+      ) : null}
 
       {hasPendingDocument && isLoading ? (
         <div className="space-y-4">
@@ -53,13 +71,12 @@ export default function AnalysisPage() {
               <Loader2 className="h-6 w-6 animate-spin" />
             </div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-civic-700">
-              Analyzing document
+              {t.analysis.loadingLabel}
             </p>
-            <h2 className="mt-1 text-xl font-semibold text-ink">Reading the letter</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              AmtBrief AI is detecting category, risk, deadline, documents, and
-              the next action.
-            </p>
+            <h2 className="mt-1 text-xl font-semibold text-ink">
+              {t.analysis.loadingMessages[messageIndex]}
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">{t.analysis.loadingSubtitle}</p>
           </section>
           <LoadingSkeleton />
         </div>
@@ -70,47 +87,15 @@ export default function AnalysisPage() {
           <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-roseSoft text-rose-700">
             <AlertTriangle className="h-5 w-5" />
           </div>
-          <h2 className="text-lg font-semibold text-ink">Analysis needs a retry</h2>
+          <h2 className="text-lg font-semibold text-ink">{t.analysis.errorTitle}</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">{error}</p>
           <div className="mt-4 grid gap-3">
-            <SecondaryButton onClick={() => void analyzeCurrentDocument()}>
-              Try again
-            </SecondaryButton>
-            <PrimaryButton href="/input">Choose another input</PrimaryButton>
+            <SecondaryButton onClick={() => void analyzeCurrentDocument()}>{t.analysis.retry}</SecondaryButton>
+            <PrimaryButton href="/input">{t.analysis.changeInput}</PrimaryButton>
           </div>
         </section>
       ) : null}
-
-      {analysis && !isLoading ? (
-        <DocumentOverview
-          analysis={analysis}
-          checklistCompleted={activeScan?.checklistCompleted}
-          createdAt={activeScan?.createdAt}
-          inputType={activeScan?.inputType}
-          reminderStatus={activeScan?.reminderStatus}
-          scanId={activeScanId}
-          sourceLabel={sourceLabel}
-        />
-      ) : null}
     </AppShell>
-  );
-}
-
-function EmptyAnalysis() {
-  return (
-    <section className="app-card p-5">
-      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-civic-100 text-civic-700">
-        <FileText className="h-6 w-6" />
-      </div>
-      <h2 className="text-xl font-semibold text-ink">No letter yet</h2>
-      <p className="mt-2 text-sm leading-6 text-slate-600">
-        Paste a German official letter or choose an example letter to start an
-        analysis.
-      </p>
-      <div className="mt-5">
-        <PrimaryButton href="/input">Add a letter</PrimaryButton>
-      </div>
-    </section>
   );
 }
 

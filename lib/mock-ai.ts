@@ -14,10 +14,54 @@ import { buildTaskChecklist } from "@/lib/tasks";
 
 export function buildMockAnalysis(letterText: string): AnalysisResult {
   const normalized = letterText.toLowerCase();
+  const paymentSignals = extractPaymentSignals(letterText);
   const isImmigration =
     normalized.includes("ausländerbehörde") ||
     normalized.includes("aufenthalt") ||
     normalized.includes("reisepass");
+
+  if (paymentSignals) {
+    return withGeneratedOutputs({
+      category: "Finanzamt - Zwangsgeld / payment request",
+      summary:
+        "The tax office says a tax declaration was not submitted and threatens or requests a coercive fine. The letter includes bank transfer details. You should verify the amount, IBAN, and reference against the original letter before paying, and submit the missing tax declaration as quickly as possible.",
+      source_excerpt: paymentSignals.sourceExcerpt,
+      authority_type: "finanzamt",
+      document_type: "payment_request",
+      required_action_type: "pay",
+      required_action:
+        "Check the payment details in the original letter, submit the missing tax declaration, and pay or clarify the requested amount before the stated deadline.",
+      deadline: paymentSignals.deadline,
+      deadline_iso: paymentSignals.deadlineIso,
+      deadline_evidence: paymentSignals.deadlineEvidence,
+      deadline_type: "exclusionary",
+      consequence_severity: "financial_penalty",
+      reply_needed: true,
+      appointment_needed: false,
+      payment_needed: Boolean(paymentSignals.iban),
+      payment_amount: paymentSignals.amount,
+      payment_iban: paymentSignals.iban,
+      proof_needed: true,
+      extension_possible: false,
+      reference_number: paymentSignals.referenceNumber,
+      risk_level: deriveRiskLevel({
+        consequenceSeverity: "financial_penalty",
+        deadlineType: "exclusionary",
+        deadlineIso: paymentSignals.deadlineIso,
+      }),
+      required_documents: [
+        "Complete tax declaration for the requested year",
+        "The original Finanzamt letter",
+        "Reference number / Verwendungszweck from the letter",
+        "Bank transfer confirmation if you pay the amount",
+      ],
+      checklist: [],
+      recommended_next_step:
+        "Verify the payment details against the original letter, submit the missing tax declaration, and pay or contact the Finanzamt before the deadline.",
+      reply_draft_de: "",
+      confidence: "high",
+    }, letterText);
+  }
 
   if (!isImmigration) {
     return withGeneratedOutputs({
@@ -259,6 +303,18 @@ export function normalizeAnalysis(value: unknown, fallbackText: string): Analysi
     rawDeadlineType,
     text: `${category} ${required_action} ${deadline ?? ""}`,
   });
+  const payment_amount =
+    typeof record.payment_amount === "string" && record.payment_amount.trim()
+      ? record.payment_amount
+      : fallback.payment_amount;
+  const payment_iban =
+    typeof record.payment_iban === "string" && record.payment_iban.trim()
+      ? record.payment_iban
+      : fallback.payment_iban;
+  const payment_needed =
+    (typeof record.payment_needed === "boolean"
+      ? record.payment_needed
+      : fallback.payment_needed) || Boolean(payment_iban);
 
   const normalized: AnalysisResult = {
     category,
@@ -279,18 +335,9 @@ export function normalizeAnalysis(value: unknown, fallbackText: string): Analysi
       typeof record.appointment_needed === "boolean"
         ? record.appointment_needed
         : fallback.appointment_needed,
-    payment_needed:
-      typeof record.payment_needed === "boolean"
-        ? record.payment_needed
-        : fallback.payment_needed,
-    payment_amount:
-      typeof record.payment_amount === "string" && record.payment_amount.trim()
-        ? record.payment_amount
-        : null,
-    payment_iban:
-      typeof record.payment_iban === "string" && record.payment_iban.trim()
-        ? record.payment_iban
-        : null,
+    payment_needed,
+    payment_amount,
+    payment_iban,
     proof_needed:
       typeof record.proof_needed === "boolean" ? record.proof_needed : fallback.proof_needed,
     extension_possible:
@@ -396,4 +443,53 @@ function createSourceExcerpt(text: string) {
   }
 
   return cleaned.length > 420 ? `${cleaned.slice(0, 420).trim()}...` : cleaned;
+}
+
+function extractPaymentSignals(text: string) {
+  const normalized = text.toLowerCase();
+  const iban = text.match(/\bDE\d{2}(?:\s?\d{4}){4}\s?\d{2}\b/i)?.[0] ?? null;
+  const hasPaymentLanguage =
+    normalized.includes("überweisen") ||
+    normalized.includes("verwendungszweck") ||
+    normalized.includes("zwangsgeld") ||
+    normalized.includes("zahlung") ||
+    Boolean(iban);
+
+  if (!hasPaymentLanguage) {
+    return null;
+  }
+
+  const amount =
+    text.match(/(?:betrag|höhe)\s+von\s+([\d.,]+\s*(?:euro|eur|€))/i)?.[1] ??
+    text.match(/\b([\d.,]+\s*(?:euro|eur|€))\b/i)?.[1] ??
+    null;
+  const referenceNumber =
+    text.match(/Verwendungszweck\s*:?\s*([A-ZÄÖÜ]{1,6}[-\d]{4,}[-\d]*)/i)?.[1] ??
+    text.match(/Aktenzeichen\s*:?\s*([A-ZÄÖÜ]{1,6}[-\d]{4,}[-\d]*)/i)?.[1] ??
+    null;
+  const deadlineMatch = text.match(/\b(\d{2})\.(\d{2})\.(\d{4})\b/);
+  const deadline = deadlineMatch?.[0] ?? "Not clearly detected";
+  const deadlineIso = deadlineMatch
+    ? `${deadlineMatch[3]}-${deadlineMatch[2]}-${deadlineMatch[1]}`
+    : null;
+  const deadlineEvidence =
+    text
+      .split(/\n+/)
+      .map((line) => line.trim())
+      .find(
+        (line) =>
+          line.includes(deadline) ||
+          line.toLowerCase().includes("nicht verlängert") ||
+          line.toLowerCase().includes("zwangsgeld"),
+      ) ?? null;
+
+  return {
+    amount,
+    deadline,
+    deadlineEvidence,
+    deadlineIso,
+    iban,
+    referenceNumber,
+    sourceExcerpt: deadlineEvidence ?? createSourceExcerpt(text),
+  };
 }

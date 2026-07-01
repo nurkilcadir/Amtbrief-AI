@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AmtBriefProvider } from "@/components/AmtBriefProvider";
+import { LanguageProvider } from "@/components/LanguageProvider";
 
 export const metadata: Metadata = {
   title: "AmtBrief AI",
@@ -26,7 +27,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <AmtBriefProvider>{children}</AmtBriefProvider>
+        <LanguageProvider>
+          <AmtBriefProvider>{children}</AmtBriefProvider>
+        </LanguageProvider>
       </body>
     </html>
   );

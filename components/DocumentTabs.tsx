@@ -3,27 +3,24 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAmtBrief } from "@/components/AmtBriefProvider";
+import { useLang } from "@/components/LanguageProvider";
 import { DocumentSection, getScanSectionHref } from "@/lib/routes";
-
-const documentTabs = [
-  { legacyHref: "/analysis", label: "Overview", section: "overview" },
-  { legacyHref: "/checklist", label: "Checklist", section: "checklist" },
-  { legacyHref: "/reply", label: "Reply", section: "reply" },
-] satisfies {
-  legacyHref: string;
-  label: string;
-  section: DocumentSection;
-}[];
 
 export function DocumentTabs({ scanId }: { scanId?: string }) {
   const pathname = usePathname();
   const { activeScanId } = useAmtBrief();
+  const { t } = useLang();
   const resolvedScanId = scanId ?? activeScanId;
+
+  const documentTabs = [
+    { legacyHref: "/checklist", label: t.tabs.tasks, section: "checklist" as DocumentSection },
+    { legacyHref: "/reply", label: t.tabs.reply, section: "reply" as DocumentSection },
+  ];
 
   return (
     <nav
       aria-label="Document sections"
-      className="grid grid-cols-3 gap-1 rounded-2xl bg-slate-100 p-1"
+      className="grid grid-cols-2 gap-1 rounded-2xl bg-slate-100 p-1"
     >
       {documentTabs.map((tab) => {
         const href = resolvedScanId

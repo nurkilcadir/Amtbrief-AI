@@ -22,30 +22,12 @@ import { LegalNotes } from "@/components/LegalNotes";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { SecondaryButton } from "@/components/SecondaryButton";
 import { useAmtBrief } from "@/components/AmtBriefProvider";
+import { useLang } from "@/components/LanguageProvider";
 import { getTaskHref, getTaskRisk } from "@/lib/task-actions";
 import { AnalysisResult, ReminderStatus, RiskLevel, ScanRecord } from "@/lib/types";
 import { getScanSectionHref } from "@/lib/routes";
+import type { T } from "@/lib/i18n";
 
-const valueCards = [
-  {
-    title: "Plain-language summary",
-    text: "See what the letter actually means.",
-    icon: FileText,
-    color: "bg-civic-100 text-civic-700",
-  },
-  {
-    title: "Deadline & risk detection",
-    text: "Spot dates, delays, and missing items.",
-    icon: ShieldAlert,
-    color: "bg-amberSoft text-amber-700",
-  },
-  {
-    title: "Ready-to-send German reply",
-    text: "Move from confusion to action.",
-    icon: MessageSquareText,
-    color: "bg-mint text-emerald-700",
-  },
-];
 
 type AuthProfile = {
   displayName: string;
@@ -67,6 +49,7 @@ type HomeNextStep = {
 
 export default function HomePage() {
   const router = useRouter();
+  const { t } = useLang();
   const [authProfile, setAuthProfile] = useState<AuthProfile | null>(null);
   const {
     analysis,
@@ -125,6 +108,7 @@ export default function HomePage() {
           selectScan={selectScan}
           sourceLabel={sourceLabel}
           userDisplayName={authProfile?.displayName ?? null}
+          t={t}
         />
       </AppShell>
     );
@@ -138,43 +122,15 @@ export default function HomePage() {
             <Landmark className="h-6 w-6" />
           </div>
           <h2 className="max-w-[340px] text-[28px] font-bold leading-[1.12] tracking-normal text-ink">
-            Understand any German official letter in seconds.
+            {t.home.title}
           </h2>
-          <p className="mt-4 text-[15px] leading-6 text-slate-600">
-            Upload or paste a document. AmtBrief AI explains what it means, what
-            you need to do, and prepares your next step.
-          </p>
+          <p className="mt-4 text-[15px] leading-6 text-slate-600">{t.home.subtitle}</p>
           <div className="mt-6 space-y-3">
-            <PrimaryButton href="/input">Analyze a letter</PrimaryButton>
-            <SecondaryButton
-              onClick={trySampleLetter}
-              icon={<CalendarClock className="h-5 w-5 text-civic-600" />}
-            >
-              Use example letter
+            <PrimaryButton href="/input">{t.home.cta}</PrimaryButton>
+            <SecondaryButton onClick={trySampleLetter} icon={<CalendarClock className="h-5 w-5 text-civic-600" />}>
+              {t.home.sample}
             </SecondaryButton>
           </div>
-        </section>
-
-        <section className="grid gap-3">
-          {valueCards.map((card) => {
-            const Icon = card.icon;
-            return (
-              <article
-                key={card.title}
-                className="app-card-subtle flex min-h-[88px] items-center gap-4 p-4"
-              >
-                <div
-                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${card.color}`}
-                >
-                  <Icon className="h-5 w-5" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-[15px] font-semibold text-ink">{card.title}</h3>
-                  <p className="mt-1 text-sm leading-5 text-slate-600">{card.text}</p>
-                </div>
-              </article>
-            );
-          })}
         </section>
 
         <LegalNotes />
@@ -192,6 +148,7 @@ function HomeDashboard({
   selectScan,
   sourceLabel,
   userDisplayName,
+  t,
 }: {
   analysis: AnalysisResult;
   activeScanId: string | null;
@@ -201,6 +158,7 @@ function HomeDashboard({
   selectScan: (scanId: string) => void;
   sourceLabel: string;
   userDisplayName: string | null;
+  t: T;
 }) {
   const completedCount = analysis.checklist.filter(
     (_, index) => checklistCompleted[index],
@@ -226,18 +184,17 @@ function HomeDashboard({
   });
   const authority = inferAuthority(analysis.category, sourceLabel);
   const activeOverviewHref = activeScanId
-    ? getScanSectionHref(activeScanId, "overview")
+    ? getScanSectionHref(activeScanId, "checklist")
     : "/analysis";
 
   return (
     <div className="space-y-4">
       <section className="space-y-1">
         <h2 className="break-words text-xl font-semibold text-ink">
-          Welcome back{userDisplayName ? `, ${userDisplayName}` : ""}
+          {t.home.welcome}{userDisplayName ? `, ${userDisplayName}` : ""}
         </h2>
         <p className="text-sm text-slate-500">
-          You have {scanCount} scanned {scanCount === 1 ? "letter" : "letters"} and{" "}
-          {totalOpenCount} open {totalOpenCount === 1 ? "step" : "steps"}.
+          {t.home.scanCount(scanCount)} · {t.home.openTasks(totalOpenCount)}
         </p>
       </section>
 
@@ -250,10 +207,8 @@ function HomeDashboard({
             <Plus className="h-6 w-6" />
           </span>
           <span>
-            <span className="block text-base font-semibold">Analyze new letter</span>
-            <span className="mt-0.5 block text-xs font-medium text-civic-100">
-              Scan, upload, or paste text
-            </span>
+            <span className="block text-base font-semibold">{t.home.newLetter}</span>
+            <span className="mt-0.5 block text-xs font-medium text-civic-100">{t.home.newLetterSub}</span>
           </span>
         </span>
         <ArrowRight className="h-5 w-5 shrink-0" />
@@ -266,13 +221,13 @@ function HomeDashboard({
               <AlertTriangle className="h-5 w-5" />
             </span>
             <div>
-              <h3 className="text-sm font-semibold text-ink">Next important step</h3>
+              <h3 className="text-sm font-semibold text-ink">{t.home.nextStep}</h3>
               <p className="text-xs text-slate-500">
-                {formatDeadline(nextImportantStep.deadline)}
+                {formatDeadline(nextImportantStep.deadline, t)}
               </p>
             </div>
           </div>
-          <RiskChip risk={nextImportantStep.risk} />
+          <RiskChip risk={nextImportantStep.risk} t={t} />
         </div>
 
         <p className="text-[15px] font-medium leading-6 text-slate-900">
@@ -288,7 +243,7 @@ function HomeDashboard({
           }}
           className="touch-target mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-civic-600 px-4 py-3 text-sm font-semibold text-white shadow-action active:scale-[0.99]"
         >
-          {nextImportantStep.ctaLabel}
+          {translateCtaLabel(nextImportantStep.ctaLabel, t)}
           <ArrowRight className="h-4 w-4" />
         </Link>
       </section>
@@ -319,7 +274,7 @@ function HomeDashboard({
               <DeadlineChip deadline={analysis.deadline} />
               <span className="inline-flex min-h-[28px] items-center gap-1.5 rounded-full bg-civic-100 px-2.5 text-xs font-semibold text-civic-700">
                 <ListChecks className="h-3.5 w-3.5" />
-                {openCount} open
+                {t.home.openCount(openCount)}
               </span>
             </div>
           </div>
@@ -327,9 +282,7 @@ function HomeDashboard({
 
         <div className="mt-4 rounded-2xl border border-civic-100 bg-civic-50 p-3">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-xs font-semibold text-slate-700">
-              Checklist progress
-            </p>
+            <p className="text-xs font-semibold text-slate-700">{t.home.progress}</p>
             <p className="text-xs font-semibold text-civic-700">
               {completedCount}/{analysis.checklist.length}
             </p>
@@ -345,19 +298,16 @@ function HomeDashboard({
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-slate-800">Recent analyses</h3>
-          <Link
-            href="/scans"
-            className="touch-target -mr-2 inline-flex items-center justify-center rounded-lg px-2 text-xs font-semibold text-civic-700 active:bg-civic-100"
-          >
-            View all
+          <h3 className="text-sm font-semibold text-slate-800">{t.home.recentScans}</h3>
+          <Link href="/scans" className="touch-target -mr-2 inline-flex items-center justify-center rounded-lg px-2 text-xs font-semibold text-civic-700 active:bg-civic-100">
+            {t.home.viewAll}
           </Link>
         </div>
 
         {scanHistory.slice(0, 3).map((scan) => (
           <Link
             key={scan.id}
-            href={getScanSectionHref(scan.id, "overview")}
+            href={getScanSectionHref(scan.id, "checklist")}
             onClick={() => selectScan(scan.id)}
             className="touch-target flex items-center gap-3 rounded-[18px] border border-slate-200 bg-white p-3 shadow-soft active:bg-slate-50"
           >
@@ -526,30 +476,33 @@ function getCreatedTime(createdAt: string | undefined) {
   return Number.isNaN(date.getTime()) ? 0 : date.getTime();
 }
 
-function RiskChip({ risk }: { risk: RiskLevel }) {
+function RiskChip({ risk, t }: { risk: RiskLevel; t: T }) {
   const style =
     risk === "high"
       ? "bg-roseSoft text-rose-700"
       : risk === "medium"
         ? "bg-amberSoft text-amber-700"
         : "bg-mint text-emerald-700";
+  const label = risk === "high" ? t.home.risk_high : risk === "medium" ? t.home.risk_medium : t.home.risk_low;
 
   return (
-    <span
-      className={`inline-flex min-h-[28px] shrink-0 items-center gap-1.5 rounded-full px-2.5 text-xs font-semibold ${style}`}
-    >
+    <span className={`inline-flex min-h-[28px] shrink-0 items-center gap-1.5 rounded-full px-2.5 text-xs font-semibold ${style}`}>
       <ShieldAlert className="h-3.5 w-3.5" />
-      {risk.charAt(0).toUpperCase() + risk.slice(1)}
+      {label}
     </span>
   );
 }
 
-function formatDeadline(deadline: string | null) {
-  if (!deadline || deadline === "Not clearly detected") {
-    return "No exact deadline detected";
-  }
+function formatDeadline(deadline: string | null, t: T) {
+  if (!deadline || deadline === "Not clearly detected") return t.home.noDeadline;
+  return t.home.deadline(deadline);
+}
 
-  return `Deadline: ${deadline}`;
+function translateCtaLabel(label: string, t: T) {
+  if (label === "Open task") return t.home.cta_openTask;
+  if (label === "Confirm final step") return t.home.cta_confirmFinal;
+  if (label === "View scans") return t.home.cta_viewScans;
+  return label;
 }
 
 function inferAuthority(category: string, sourceLabel: string) {

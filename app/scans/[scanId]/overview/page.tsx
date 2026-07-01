@@ -1,41 +1,21 @@
 "use client";
 
-import { useParams } from "next/navigation";
-import { AppShell } from "@/components/AppShell";
-import { DocumentOverview } from "@/components/DocumentOverview";
-import { ScanRouteState, useRoutedScan } from "@/components/ScanRouteGuard";
-import { useAmtBrief } from "@/components/AmtBriefProvider";
+import { useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
 
 export default function ScanOverviewPage() {
-  const scanId = useRouteScanId();
-  const { analysis } = useAmtBrief();
-  const { isActive, scan } = useRoutedScan(scanId);
-
-  if (!scan) {
-    return <ScanRouteState kind="missing" />;
-  }
-
-  if (!isActive || !analysis) {
-    return <ScanRouteState kind="loading" />;
-  }
-
-  return (
-    <AppShell title="Document Summary" eyebrow="AmtBrief AI">
-      <DocumentOverview
-        analysis={scan.analysis}
-        checklistCompleted={scan.checklistCompleted}
-        createdAt={scan.createdAt}
-        inputType={scan.inputType}
-        reminderStatus={scan.reminderStatus}
-        scanId={scan.id}
-        sourceLabel={scan.sourceLabel}
-      />
-    </AppShell>
-  );
-}
-
-function useRouteScanId() {
+  const router = useRouter();
   const params = useParams<{ scanId?: string | string[] }>();
   const value = params.scanId;
-  return Array.isArray(value) ? value[0] ?? "" : value ?? "";
+  const scanId = Array.isArray(value) ? (value[0] ?? "") : (value ?? "");
+
+  useEffect(() => {
+    if (scanId) {
+      router.replace(`/scans/${scanId}/checklist`);
+    } else {
+      router.replace("/scans");
+    }
+  }, [scanId, router]);
+
+  return null;
 }
