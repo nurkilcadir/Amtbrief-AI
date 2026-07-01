@@ -16,10 +16,9 @@ import {
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { PrimaryButton } from "@/components/PrimaryButton";
-import { SecondaryButton } from "@/components/SecondaryButton";
 import { useAmtBrief } from "@/components/AmtBriefProvider";
 import { AnalysisInputType } from "@/lib/types";
-import { sampleLetter } from "@/lib/sample-documents";
+import { findSampleLetterByText, sampleLetters } from "@/lib/sample-documents";
 
 type FileInputType = Extract<AnalysisInputType, "pdf" | "image" | "camera">;
 
@@ -90,8 +89,8 @@ export default function InputPage() {
     setTextMode(false);
   }
 
-  function useSample() {
-    setText(sampleLetter.text);
+  function applySample(sampleText: string) {
+    setText(sampleText);
     setFile(null);
     setFileInputType(null);
     updatePreviewUrl("");
@@ -137,10 +136,9 @@ export default function InputPage() {
       return;
     }
 
-    const label =
-      text.trim() === sampleLetter.text.trim() ? sampleLetter.title : "Pasted letter";
-    const inputType: AnalysisInputType =
-      text.trim() === sampleLetter.text.trim() ? "example" : "text";
+    const matchedSample = findSampleLetterByText(text);
+    const label = matchedSample ? matchedSample.title : "Pasted letter";
+    const inputType: AnalysisInputType = matchedSample ? "example" : "text";
     setDocument(text, label, inputType);
     router.push("/analysis");
   }
@@ -314,13 +312,33 @@ export default function InputPage() {
           <PrimaryButton onClick={analyze} disabled={!canAnalyze}>
             {analyzeLabel}
           </PrimaryButton>
-          <SecondaryButton
-            onClick={useSample}
-            icon={<Sparkles className="h-5 w-5 text-civic-600" />}
-          >
-            Use example letter
-          </SecondaryButton>
         </div>
+
+        <section className="app-card p-4">
+          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-800">
+            <Sparkles className="h-4 w-4 text-civic-600" />
+            Sample letters
+          </div>
+          <p className="mb-3 text-xs leading-5 text-slate-500">
+            No letter handy? Try one of these to see how AmtBrief AI handles
+            different risk levels, deadlines, and the payment flow.
+          </p>
+          <div className="space-y-2">
+            {sampleLetters.map((sample) => (
+              <button
+                key={sample.id}
+                type="button"
+                onClick={() => applySample(sample.text)}
+                className="touch-target flex w-full flex-col items-start gap-1 rounded-2xl border border-slate-200 bg-white p-3 text-left transition active:scale-[0.99] active:bg-slate-50"
+              >
+                <span className="text-sm font-semibold text-ink">{sample.title}</span>
+                <span className="inline-flex min-h-[24px] items-center rounded-full bg-civic-100 px-2.5 text-[11px] font-bold text-civic-700">
+                  {sample.tag}
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
       </div>
     </AppShell>
   );

@@ -1,11 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  allowedDevOrigins: ["127.0.0.1"],
   serverExternalPackages: ["pdfjs-dist"],
   async headers() {
     return [
       {
-        source: "/",
+        source: "/:path*",
         headers: [
           {
             key: "Cache-Control",

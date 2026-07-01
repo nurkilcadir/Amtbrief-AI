@@ -8,7 +8,7 @@ import { useAmtBrief } from "@/components/AmtBriefProvider";
 
 export default function ScanOverviewPage() {
   const scanId = useRouteScanId();
-  const { analysis, sourceLabel } = useAmtBrief();
+  const { analysis } = useAmtBrief();
   const { isActive, scan } = useRoutedScan(scanId);
 
   if (!scan) {
@@ -21,7 +21,15 @@ export default function ScanOverviewPage() {
 
   return (
     <AppShell title="Document Summary" eyebrow="AmtBrief AI">
-      <DocumentOverview analysis={analysis} scanId={scan.id} sourceLabel={sourceLabel} />
+      <DocumentOverview
+        analysis={scan.analysis}
+        checklistCompleted={scan.checklistCompleted}
+        createdAt={scan.createdAt}
+        inputType={scan.inputType}
+        reminderStatus={scan.reminderStatus}
+        scanId={scan.id}
+        sourceLabel={scan.sourceLabel}
+      />
     </AppShell>
   );
 }

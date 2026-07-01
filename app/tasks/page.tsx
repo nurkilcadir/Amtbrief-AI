@@ -18,8 +18,8 @@ import {
 import { AppShell } from "@/components/AppShell";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { useAmtBrief } from "@/components/AmtBriefProvider";
+import { getTaskHref, getTaskRisk } from "@/lib/task-actions";
 import { RiskLevel, ScanRecord } from "@/lib/types";
-import { getScanSectionHref } from "@/lib/routes";
 
 type TaskFilter = "all" | "urgent" | "today" | "completed";
 
@@ -322,46 +322,6 @@ function buildTaskCards(scan: ScanRecord): TaskCard[] {
     completed: scan.reminderStatus === "handled" || !!scan.checklistCompleted[index],
     risk: getTaskRisk(step, scan.analysis.risk_level),
   }));
-}
-
-function getTaskRisk(step: string, overallRisk: RiskLevel): RiskLevel {
-  const text = step.toLowerCase();
-
-  if (overallRisk === "high") {
-    return "high";
-  }
-
-  if (
-    text.includes("passport") ||
-    text.includes("insurance") ||
-    text.includes("rental") ||
-    text.includes("income") ||
-    text.includes("appointment") ||
-    text.includes("deadline") ||
-    text.includes("frist")
-  ) {
-    return "high";
-  }
-
-  if (text.includes("reply") || text.includes("send") || text.includes("contact")) {
-    return "medium";
-  }
-
-  return overallRisk;
-}
-
-function getTaskHref(scanId: string, step: string) {
-  const text = step.toLowerCase();
-
-  if (text.includes("reply") || text.includes("send")) {
-    return getScanSectionHref(scanId, "reply");
-  }
-
-  if (text.includes("reminder")) {
-    return "/reminder";
-  }
-
-  return getScanSectionHref(scanId, "checklist");
 }
 
 function getDueLabel(step: string, deadline: string | null) {

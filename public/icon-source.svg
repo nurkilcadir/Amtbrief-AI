@@ -1,0 +1,55 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E3A8F" />
+      <stop offset="55%" stop-color="#1E40AF" />
+      <stop offset="100%" stop-color="#4338CA" />
+    </linearGradient>
+    <radialGradient id="sheen" cx="28%" cy="20%" r="65%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.22" />
+      <stop offset="45%" stop-color="#ffffff" stop-opacity="0.05" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="paper" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="100%" stop-color="#F4F6FF" />
+    </linearGradient>
+    <linearGradient id="badge" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34D399" />
+      <stop offset="100%" stop-color="#0EA86C" />
+    </linearGradient>
+    <filter id="paperShadow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#0B1A4A" flood-opacity="0.28" />
+    </filter>
+    <filter id="badgeShadow" x="-60%" y="-60%" width="220%" height="220%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#0B6B43" flood-opacity="0.35" />
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" fill="url(#bg)" />
+  <rect width="512" height="512" fill="url(#sheen)" />
+
+  <!-- Document -->
+  <g filter="url(#paperShadow)">
+    <path d="M161 122 H299 L355 178 V388 a16 16 0 0 1 -16 16 H161 a16 16 0 0 1 -16 -16 V138 a16 16 0 0 1 16 -16 Z" fill="url(#paper)" />
+    <path d="M299 122 L355 178 H315 a16 16 0 0 1 -16 -16 Z" fill="#DCE2F7" />
+  </g>
+
+  <!-- Text lines on the document -->
+  <rect x="183" y="218" width="140" height="14" rx="7" fill="#C7D0F2" />
+  <rect x="183" y="250" width="140" height="14" rx="7" fill="#C7D0F2" />
+  <rect x="183" y="282" width="92" height="14" rx="7" fill="#C7D0F2" />
+  <rect x="183" y="324" width="110" height="12" rx="6" fill="#E7EBFB" />
+  <rect x="183" y="348" width="80" height="12" rx="6" fill="#E7EBFB" />
+
+  <!-- Sparkle accent (AI) -->
+  <path d="M 372 96 L 380 118 L 402 126 L 380 134 L 372 156 L 364 134 L 342 126 L 364 118 Z" fill="#FFFFFF" opacity="0.92" />
+  <circle cx="406" cy="170" r="5" fill="#FFFFFF" opacity="0.7" />
+
+  <!-- Verified / handled badge -->
+  <g filter="url(#badgeShadow)">
+    <circle cx="358" cy="372" r="54" fill="url(#badge)" stroke="#FFFFFF" stroke-width="7" />
+  </g>
+  <path d="M334 372 L350 388 L384 352" fill="none" stroke="#FFFFFF" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" />
+</svg>

@@ -43,7 +43,7 @@ export async function POST(request: Request) {
       parsed,
       prepared.input.text || createFileFallbackText(prepared.input),
     );
-    return NextResponse.json(groundSourceExcerpt(normalized, prepared.input.text));
+    return NextResponse.json(groundEvidenceFields(normalized, prepared.input.text));
   } catch (error) {
     console.error("AmtBrief analysis failed", error);
     return NextResponse.json(
@@ -188,7 +188,10 @@ async function analyzeWithOpenRouter(input: AnalyzeRequest) {
         {
           role: "system",
           content:
-            "You are AmtBrief AI, a German bureaucracy copilot. Analyze official German letters and return only valid JSON. Be practical, clear, and non-legal-advice. Checklist must contain 5 to 7 concrete steps. Include source_excerpt as a short recognized excerpt or concise source summary from the original document, useful for identifying the uploaded letter later. The source_excerpt must be copied verbatim from the original document text, not paraphrased. For deadline_iso, return a precise ISO 8601 date (and time, if known) only when the letter states an exact, unambiguous date; otherwise return null and explain in deadline instead.\n\n" +
+            "You are AmtBrief AI, a German bureaucracy copilot. Analyze official German letters and return only valid JSON. Be practical, clear, and non-legal-advice. Checklist must contain 5 to 7 concrete steps. Include source_excerpt as a short recognized excerpt or concise source summary from the original document, useful for identifying the uploaded letter later. The source_excerpt must be copied verbatim from the original document text, not paraphrased. For deadline_iso, return a precise ISO 8601 date (and time, if known) only when the letter states an exact, unambiguous date; otherwise return null and explain in deadline instead. For deadline_evidence, quote the exact sentence (verbatim, original wording) from the letter that states the deadline, so the user can verify it themselves; return null if no deadline was found.\n\n" +
+            "Return category, summary, required_action, deadline, required_documents, checklist, recommended_next_step, confidence, consequence_severity, and deadline_type in clear English for the app UI. Only source_excerpt and deadline_evidence should preserve original German wording, and only reply_draft_de should be written in German.\n\n" +
+            "Also classify task planning signals instead of inventing final tasks: authority_type, document_type, required_action_type, reply_needed, appointment_needed, payment_needed, proof_needed, extension_possible, and reference_number. These signals must be based only on the letter. The app will use deterministic German bureaucracy rules to create the final checklist.\n\n" +
+            "For payment_amount, quote the exact amount as written in the letter (e.g. '500 Euro' or '47,30 EUR'); return null if no amount is stated. For payment_iban, quote the exact IBAN as written in the letter, character for character - this is shown to the user as a real bank transfer target, so accuracy is critical; return null if no IBAN is present, never guess or construct one. Both must be copied verbatim from the original document text.\n\n" +
             "Classify consequence_severity by what actually happens if the recipient does nothing, based on how German authorities escalate in real life: 'financial_penalty' if a Bußgeld, Zwangsgeld, or Verspätungszuschlag is threatened; 'status_loss' if a legal status, benefit, or permit would lapse or be revoked (e.g. residence permit, Leistungseinstellung); 'rejection' if an application would simply be denied without further escalation; 'delay_only' if the only consequence is the process taking longer (e.g. 'Verzögerung', missing documents postponing a decision); 'informational' if the letter is a routine notice with no required reaction.\n\n" +
             "Classify deadline_type by whether the deadline can realistically be negotiated: 'exclusionary' if missing it causes an irreversible loss of rights typical of a gesetzliche Ausschlussfrist (e.g. Widerspruchsfrist, Einspruchsfrist - usually phrased as a hard legal deadline, often around 1 month, tied to an appeal or legal remedy); 'extendable' if it is a routine administrative appointment or request where asking for a new date or more time is normal practice; 'none' if there is no concrete deadline at all.\n\n" +
             "Do not invent your own risk_level from intuition - it will be computed from consequence_severity and deadline_type, so focus on classifying those two fields accurately. Do not include unnecessary sensitive details.",
@@ -226,46 +229,74 @@ async function analyzeWithOpenRouter(input: AnalyzeRequest) {
 }
 
 /**
- * Confirms the model's source_excerpt is actually grounded in the original
- * text (rather than hallucinated). Only applicable when we have extracted
- * text to compare against (text input or PDF) - vision-only flows (image,
- * camera) have no original text and are skipped.
+ * Confirms the model's source_excerpt and deadline_evidence are actually
+ * grounded in the original text (rather than hallucinated). Only applicable
+ * when we have extracted text to compare against (text input or PDF) -
+ * vision-only flows (image, camera) have no original text and are skipped.
+ *
+ * source_excerpt failing grounding downgrades overall confidence, since it
+ * is the headline "this is the letter we recognized" claim. deadline_evidence
+ * failing grounding is narrower in scope, so it is simply nulled out instead
+ * of dragging down confidence in the entire analysis - the UI just hides the
+ * "Why?" citation for the deadline when we can't back it up.
  */
-function groundSourceExcerpt(
+function groundEvidenceFields(
   analysis: ReturnType<typeof normalizeAnalysis>,
   originalText: string,
 ): ReturnType<typeof normalizeAnalysis> {
-  if (!originalText || !analysis.source_excerpt) {
+  if (!originalText) {
     return analysis;
   }
 
   const normalizedOriginal = normalizeForComparison(originalText);
-  const normalizedExcerpt = normalizeForComparison(
-    analysis.source_excerpt.replace(/\.\.\.$/, ""),
-  );
+  let next = analysis;
 
-  if (!normalizedExcerpt) {
-    return analysis;
+  if (next.source_excerpt && !isGrounded(next.source_excerpt, normalizedOriginal)) {
+    console.warn("AmtBrief: source_excerpt failed grounding check, downgrading confidence");
+    next = { ...next, confidence: "low" };
   }
 
-  if (normalizedOriginal.includes(normalizedExcerpt)) {
-    return analysis;
+  if (next.deadline_evidence && !isGrounded(next.deadline_evidence, normalizedOriginal)) {
+    console.warn("AmtBrief: deadline_evidence failed grounding check, dropping it");
+    next = { ...next, deadline_evidence: null };
   }
 
-  const overlapRatio = wordOverlapRatio(normalizedExcerpt, normalizedOriginal);
-
-  if (overlapRatio >= 0.6) {
-    return analysis;
+  if (next.payment_amount && !isGrounded(next.payment_amount, normalizedOriginal)) {
+    console.warn("AmtBrief: payment_amount failed grounding check, dropping it");
+    next = { ...next, payment_amount: null };
   }
 
-  console.warn(
-    `AmtBrief: source_excerpt failed grounding check (overlap ${overlapRatio.toFixed(2)}), downgrading confidence`,
-  );
+  if (next.payment_iban && !isGrounded(next.payment_iban, normalizedOriginal, { exact: true })) {
+    console.warn("AmtBrief: payment_iban failed grounding check, dropping it");
+    next = { ...next, payment_iban: null };
+  }
 
-  return {
-    ...analysis,
-    confidence: "low",
-  };
+  return next;
+}
+
+function isGrounded(claim: string, normalizedOriginal: string, options?: { exact?: boolean }) {
+  const normalizedClaim = normalizeForComparison(claim.replace(/\.\.\.$/, ""));
+
+  if (!normalizedClaim) {
+    return true;
+  }
+
+  if (normalizedOriginal.includes(normalizedClaim)) {
+    return true;
+  }
+
+  // Exact mode (IBANs, account numbers): a near-miss is as dangerous as a
+  // total fabrication - one wrong digit sends money to the wrong account.
+  // Fuzzy word-overlap matching is only safe for prose claims. Still allow
+  // whitespace-grouping differences (IBANs are conventionally chunked in
+  // groups of 4, but extracted PDF/OCR text may not preserve that spacing).
+  if (options?.exact) {
+    return normalizedOriginal
+      .replace(/\s+/g, "")
+      .includes(normalizedClaim.replace(/\s+/g, ""));
+  }
+
+  return wordOverlapRatio(normalizedClaim, normalizedOriginal) >= 0.6;
 }
 
 function normalizeForComparison(text: string) {
@@ -307,7 +338,9 @@ async function getOpenRouterErrorMessage(response: Response) {
 async function buildOpenRouterContent(input: AnalyzeRequest) {
   const instruction = [
     "Analyze this German official letter.",
-    "Return category, summary, source_excerpt, required action, deadline, risk level, required documents, checklist, recommended next step, German reply draft, and confidence.",
+    "Return category, summary, required action, deadline, risk level, required documents, suggested checklist, recommended next step, and confidence in clear English.",
+    "Classify task planning signals: authority_type, document_type, required_action_type, reply_needed, appointment_needed, payment_needed, proof_needed, extension_possible, and reference_number.",
+    "Return source_excerpt in original German wording and reply_draft_de as a formal German reply.",
     "source_excerpt should be one short recognized excerpt or concise source summary from the original document so the user can identify this scan later.",
     `Input source: ${input.inputType}.`,
     input.inputType === "pdf"
@@ -492,14 +525,64 @@ const analysisJsonSchema = {
     category: { type: "string" },
     summary: { type: "string" },
     source_excerpt: { type: "string" },
+    authority_type: {
+      enum: [
+        "auslaenderbehoerde",
+        "finanzamt",
+        "jobcenter",
+        "krankenkasse",
+        "buergeramt",
+        "university_bafog",
+        "insurance",
+        "vehicle_registration",
+        "other",
+      ],
+      type: "string",
+    },
+    document_type: {
+      enum: [
+        "appointment",
+        "missing_documents",
+        "payment_request",
+        "objection_deadline",
+        "hearing",
+        "decision_notice",
+        "information_only",
+        "application_status",
+        "other",
+      ],
+      type: "string",
+    },
+    required_action_type: {
+      enum: [
+        "attend_appointment",
+        "submit_documents",
+        "pay",
+        "reply",
+        "file_objection",
+        "provide_information",
+        "no_action",
+        "other",
+      ],
+      type: "string",
+    },
     required_action: { type: "string" },
     deadline: { anyOf: [{ type: "string" }, { type: "null" }] },
     deadline_iso: { anyOf: [{ type: "string" }, { type: "null" }] },
+    deadline_evidence: { anyOf: [{ type: "string" }, { type: "null" }] },
     deadline_type: { enum: ["exclusionary", "extendable", "none"], type: "string" },
     consequence_severity: {
       enum: ["financial_penalty", "status_loss", "rejection", "delay_only", "informational"],
       type: "string",
     },
+    reply_needed: { type: "boolean" },
+    appointment_needed: { type: "boolean" },
+    payment_needed: { type: "boolean" },
+    payment_amount: { anyOf: [{ type: "string" }, { type: "null" }] },
+    payment_iban: { anyOf: [{ type: "string" }, { type: "null" }] },
+    proof_needed: { type: "boolean" },
+    extension_possible: { type: "boolean" },
+    reference_number: { anyOf: [{ type: "string" }, { type: "null" }] },
     risk_level: { enum: ["low", "medium", "high"], type: "string" },
     required_documents: {
       type: "array",
@@ -519,11 +602,23 @@ const analysisJsonSchema = {
     "category",
     "summary",
     "source_excerpt",
+    "authority_type",
+    "document_type",
+    "required_action_type",
     "required_action",
     "deadline",
     "deadline_iso",
+    "deadline_evidence",
     "deadline_type",
     "consequence_severity",
+    "reply_needed",
+    "appointment_needed",
+    "payment_needed",
+    "payment_amount",
+    "payment_iban",
+    "proof_needed",
+    "extension_possible",
+    "reference_number",
     "risk_level",
     "required_documents",
     "checklist",

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   AlertTriangle,
   ArrowRight,
@@ -21,6 +22,7 @@ import { LegalNotes } from "@/components/LegalNotes";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { SecondaryButton } from "@/components/SecondaryButton";
 import { useAmtBrief } from "@/components/AmtBriefProvider";
+import { getTaskHref, getTaskRisk } from "@/lib/task-actions";
 import { AnalysisResult, ReminderStatus, RiskLevel, ScanRecord } from "@/lib/types";
 import { getScanSectionHref } from "@/lib/routes";
 
@@ -45,8 +47,27 @@ const valueCards = [
   },
 ];
 
+type AuthProfile = {
+  displayName: string;
+  email: string | null;
+  firstName: string | null;
+  lastName: string | null;
+};
+
+type HomeNextStep = {
+  ctaLabel: string;
+  deadline: string | null;
+  documentRisk: RiskLevel;
+  href: string;
+  risk: RiskLevel;
+  scanId: string | null;
+  stepIndex: number;
+  text: string;
+};
+
 export default function HomePage() {
   const router = useRouter();
+  const [authProfile, setAuthProfile] = useState<AuthProfile | null>(null);
   const {
     analysis,
     activeScanId,
@@ -57,6 +78,35 @@ export default function HomePage() {
     selectScan,
     sourceLabel,
   } = useAmtBrief();
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadProfile() {
+      const response = await fetch("/api/auth/me", {
+        cache: "no-store",
+      }).catch(() => null);
+
+      if (!response?.ok) return;
+
+      const payload = (await response.json().catch(() => null)) as
+        | {
+            authenticated?: boolean;
+            user?: AuthProfile | null;
+          }
+        | null;
+
+      if (mounted && payload?.authenticated && payload.user) {
+        setAuthProfile(payload.user);
+      }
+    }
+
+    void loadProfile();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   function trySampleLetter() {
     loadSampleDocument();
@@ -74,6 +124,7 @@ export default function HomePage() {
           scanHistory={scanHistory}
           selectScan={selectScan}
           sourceLabel={sourceLabel}
+          userDisplayName={authProfile?.displayName ?? null}
         />
       </AppShell>
     );
@@ -140,6 +191,7 @@ function HomeDashboard({
   scanHistory,
   selectScan,
   sourceLabel,
+  userDisplayName,
 }: {
   analysis: AnalysisResult;
   activeScanId: string | null;
@@ -148,6 +200,7 @@ function HomeDashboard({
   scanHistory: ScanRecord[];
   selectScan: (scanId: string) => void;
   sourceLabel: string;
+  userDisplayName: string | null;
 }) {
   const completedCount = analysis.checklist.filter(
     (_, index) => checklistCompleted[index],
@@ -164,15 +217,13 @@ function HomeDashboard({
   const progress = Math.round(
     (completedCount / Math.max(analysis.checklist.length, 1)) * 100,
   );
-  const nextTaskIndex = analysis.checklist.findIndex(
-    (_, index) => !checklistCompleted[index],
-  );
-  const nextTask =
-    reminderStatus === "handled"
-      ? "Your latest letter is marked as handled. Keep the document and reply for your records."
-      : nextTaskIndex === -1
-      ? "All checklist steps are completed. Confirm the final reminder or keep the document for your records."
-      : analysis.checklist[nextTaskIndex];
+  const nextImportantStep = getNextImportantStep({
+    activeScanId,
+    analysis,
+    checklistCompleted,
+    reminderStatus,
+    scanHistory,
+  });
   const authority = inferAuthority(analysis.category, sourceLabel);
   const activeOverviewHref = activeScanId
     ? getScanSectionHref(activeScanId, "overview")
@@ -181,7 +232,9 @@ function HomeDashboard({
   return (
     <div className="space-y-4">
       <section className="space-y-1">
-        <h2 className="text-xl font-semibold text-ink">Welcome back</h2>
+        <h2 className="break-words text-xl font-semibold text-ink">
+          Welcome back{userDisplayName ? `, ${userDisplayName}` : ""}
+        </h2>
         <p className="text-sm text-slate-500">
           You have {scanCount} scanned {scanCount === 1 ? "letter" : "letters"} and{" "}
           {totalOpenCount} open {totalOpenCount === 1 ? "step" : "steps"}.
@@ -214,29 +267,28 @@ function HomeDashboard({
             </span>
             <div>
               <h3 className="text-sm font-semibold text-ink">Next important step</h3>
-              <p className="text-xs text-slate-500">{formatDeadline(analysis.deadline)}</p>
+              <p className="text-xs text-slate-500">
+                {formatDeadline(nextImportantStep.deadline)}
+              </p>
             </div>
           </div>
-          <RiskChip risk={analysis.risk_level} />
+          <RiskChip risk={nextImportantStep.risk} />
         </div>
 
-        <p className="text-[15px] font-medium leading-6 text-slate-900">{nextTask}</p>
+        <p className="text-[15px] font-medium leading-6 text-slate-900">
+          {nextImportantStep.text}
+        </p>
 
         <Link
-          href={
-            reminderStatus === "handled"
-              ? "/scans"
-              : nextTaskIndex === -1
-                ? "/reminder"
-                : "/tasks"
-          }
+          href={nextImportantStep.href}
+          onClick={() => {
+            if (nextImportantStep.scanId) {
+              selectScan(nextImportantStep.scanId);
+            }
+          }}
           className="touch-target mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-civic-600 px-4 py-3 text-sm font-semibold text-white shadow-action active:scale-[0.99]"
         >
-          {reminderStatus === "handled"
-            ? "View scans"
-            : nextTaskIndex === -1
-              ? "Confirm final step"
-              : "Open tasks"}
+          {nextImportantStep.ctaLabel}
           <ArrowRight className="h-4 w-4" />
         </Link>
       </section>
@@ -337,6 +389,141 @@ function DeadlineChip({ deadline }: { deadline: string | null }) {
       <span className="truncate">{deadline ?? "No deadline"}</span>
     </span>
   );
+}
+
+function getNextImportantStep({
+  activeScanId,
+  analysis,
+  checklistCompleted,
+  reminderStatus,
+  scanHistory,
+}: {
+  activeScanId: string | null;
+  analysis: AnalysisResult;
+  checklistCompleted: Record<number, boolean>;
+  reminderStatus: ReminderStatus;
+  scanHistory: ScanRecord[];
+}): HomeNextStep {
+  const candidates =
+    scanHistory.length > 0
+      ? scanHistory.flatMap((scan) => {
+          const candidate = getScanNextStep(scan);
+          return candidate ? [candidate] : [];
+        })
+      : [
+          getAnalysisNextStep({
+            analysis,
+            checklistCompleted,
+            reminderStatus,
+            scanId: activeScanId,
+          }),
+        ].filter((candidate): candidate is HomeNextStep => Boolean(candidate));
+
+  if (candidates.length === 0) {
+    return {
+      ctaLabel: "View scans",
+      deadline: analysis.deadline,
+      documentRisk: analysis.risk_level,
+      href: "/scans",
+      risk: analysis.risk_level,
+      scanId: activeScanId,
+      stepIndex: Number.MAX_SAFE_INTEGER,
+      text: "Your scanned letters are marked as handled. Keep the documents and replies for your records.",
+    };
+  }
+
+  return candidates.sort(compareHomeNextSteps)[0];
+}
+
+function getScanNextStep(scan: ScanRecord): HomeNextStep | null {
+  return getAnalysisNextStep({
+    analysis: scan.analysis,
+    checklistCompleted: scan.checklistCompleted,
+    createdAt: scan.createdAt,
+    reminderStatus: scan.reminderStatus,
+    scanId: scan.id,
+  });
+}
+
+function getAnalysisNextStep({
+  analysis,
+  checklistCompleted,
+  createdAt,
+  reminderStatus,
+  scanId,
+}: {
+  analysis: AnalysisResult;
+  checklistCompleted: Record<number, boolean>;
+  createdAt?: string;
+  reminderStatus: ReminderStatus;
+  scanId: string | null;
+}): (HomeNextStep & { createdAt?: string; deadlineIso?: string | null }) | null {
+  if (reminderStatus === "handled") {
+    return null;
+  }
+
+  const stepIndex = analysis.checklist.findIndex(
+    (_, index) => !checklistCompleted[index],
+  );
+
+  if (stepIndex === -1) {
+    return {
+      createdAt,
+      ctaLabel: "Confirm final step",
+      deadline: analysis.deadline,
+      deadlineIso: analysis.deadline_iso,
+      documentRisk: analysis.risk_level,
+      href: "/reminder",
+      risk: analysis.risk_level,
+      scanId,
+      stepIndex: Number.MAX_SAFE_INTEGER - 1,
+      text: "All checklist steps are completed. Confirm the final reminder or keep the document for your records.",
+    };
+  }
+
+  const step = analysis.checklist[stepIndex];
+
+  return {
+    createdAt,
+    ctaLabel: "Open task",
+    deadline: analysis.deadline,
+    deadlineIso: analysis.deadline_iso,
+    documentRisk: analysis.risk_level,
+    href: scanId ? getTaskHref(scanId, step) : "/tasks",
+    risk: getTaskRisk(step, analysis.risk_level),
+    scanId,
+    stepIndex,
+    text: step,
+  };
+}
+
+function compareHomeNextSteps(
+  left: HomeNextStep & { createdAt?: string; deadlineIso?: string | null },
+  right: HomeNextStep & { createdAt?: string; deadlineIso?: string | null },
+) {
+  return (
+    riskRank(left.documentRisk) - riskRank(right.documentRisk) ||
+    getDeadlineTime(left.deadlineIso) - getDeadlineTime(right.deadlineIso) ||
+    riskRank(left.risk) - riskRank(right.risk) ||
+    left.stepIndex - right.stepIndex ||
+    getCreatedTime(right.createdAt) - getCreatedTime(left.createdAt)
+  );
+}
+
+function riskRank(risk: RiskLevel) {
+  return risk === "high" ? 0 : risk === "medium" ? 1 : 2;
+}
+
+function getDeadlineTime(deadlineIso: string | null | undefined) {
+  if (!deadlineIso) return Number.MAX_SAFE_INTEGER;
+  const date = new Date(deadlineIso);
+  return Number.isNaN(date.getTime()) ? Number.MAX_SAFE_INTEGER : date.getTime();
+}
+
+function getCreatedTime(createdAt: string | undefined) {
+  if (!createdAt) return 0;
+  const date = new Date(createdAt);
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
 }
 
 function RiskChip({ risk }: { risk: RiskLevel }) {

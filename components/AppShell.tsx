@@ -32,22 +32,16 @@ export function AppShell({
   return (
     <main className="mx-auto flex min-h-svh w-full max-w-[430px] flex-col bg-civic-50 shadow-[0_0_44px_rgba(15,23,42,0.08)]">
       <header className="safe-top sticky top-0 z-20 border-b border-slate-200/70 bg-civic-50/95 px-5 pb-3 pt-3 backdrop-blur-xl">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-2.5">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-civic-100 text-civic-700">
-              <Landmark className="h-[18px] w-[18px]" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-civic-700">
-                {eyebrow}
-              </p>
-              <h1 className="truncate text-base font-semibold text-ink">{title}</h1>
-            </div>
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-civic-100 text-civic-700">
+            <Landmark className="h-[18px] w-[18px]" />
           </div>
-          <div
-            aria-hidden="true"
-            className="h-9 w-[128px] shrink-0 rounded-full border border-transparent"
-          />
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-civic-700">
+              {eyebrow}
+            </p>
+            <h1 className="truncate text-base font-semibold text-ink">{title}</h1>
+          </div>
         </div>
       </header>
       <section className="flex-1 px-5 pb-[104px] pt-4">{children}</section>

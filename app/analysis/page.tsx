@@ -18,6 +18,7 @@ export default function AnalysisPage() {
     analysisStatus,
     sourceLabel,
     activeScanId,
+    scanHistory,
     documentFile,
     documentText,
     analyzeCurrentDocument,
@@ -35,6 +36,8 @@ export default function AnalysisPage() {
   const isLoading =
     analysisStatus === "loading" ||
     (analysisStatus === "idle" && !analysis && hasPendingDocument);
+  const activeScan =
+    activeScanId ? scanHistory.find((scan) => scan.id === activeScanId) : null;
 
   return (
     <AppShell
@@ -81,6 +84,10 @@ export default function AnalysisPage() {
       {analysis && !isLoading ? (
         <DocumentOverview
           analysis={analysis}
+          checklistCompleted={activeScan?.checklistCompleted}
+          createdAt={activeScan?.createdAt}
+          inputType={activeScan?.inputType}
+          reminderStatus={activeScan?.reminderStatus}
           scanId={activeScanId}
           sourceLabel={sourceLabel}
         />

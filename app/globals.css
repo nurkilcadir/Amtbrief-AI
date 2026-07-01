@@ -83,3 +83,46 @@ select {
     display: none;
   }
 }
+
+@media print {
+  @page {
+    margin: 14mm;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #111827 !important;
+    min-height: auto !important;
+    overscroll-behavior-y: auto;
+  }
+
+  * {
+    box-shadow: none !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .no-print,
+  main > header,
+  main > nav {
+    display: none !important;
+  }
+
+  main {
+    max-width: none !important;
+    min-height: auto !important;
+    width: 100% !important;
+    background: #ffffff !important;
+  }
+
+  main > section {
+    padding: 0 !important;
+  }
+
+  .print-page {
+    border: 0 !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+  }
+}

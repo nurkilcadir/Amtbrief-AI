@@ -22,6 +22,11 @@ AmtBrief AI is a mobile-first partner MiniApp for the 1DE / KOBIL SuperApp ecosy
 - OpenAI-compatible API route structure:
   - `POST /api/analyze`
   - `POST /api/generate-reply`
+- Server-side reminder infrastructure for mPower SuperApp messages:
+  - `POST /api/reminders/schedule`
+  - `POST /api/reminders/handled`
+  - `GET|POST /api/reminders/run`
+  - `POST /api/webhooks/mpower`
 - `public/miniApp.json` for KOBIL / 1DE MiniApp rendering
 
 ## Run locally
@@ -79,6 +84,74 @@ OPENAI_BASE_URL=https://provider.example.com/v1
 ```
 
 In production, configure `OPENROUTER_API_KEY` and monitor API route failures before release.
+
+## mPower reminders
+
+When a user taps the reminder CTA, the app saves the reminder plan server-side.
+In production, `instrumentation.ts` starts an internal reminder scheduler when
+the Next.js container boots. The scheduler checks due reminders every minute and
+sends SuperApp mPower choice messages automatically.
+
+The same mPower configuration is also used for PDF signing. From the reply
+screen, AmtBrief AI creates an official reply PDF, sends it to the SuperApp
+signature flow, receives the `signatureResponse` callback, and exposes the
+signed PDF for download when mPower returns the signed media id.
+
+Required environment variables:
+
+```bash
+OIDC_ISSUER=...
+OIDC_CLIENT_ID=...
+OIDC_CLIENT_SECRET=...
+MPOWER_BASE_URL=...
+MPOWER_TENANT=...
+MPOWER_SERVICE_UUID=...
+MINIAPP_SHARE_BASE=...
+APP_BASE_URL=...
+REMINDER_RUN_SECRET=...
+```
+
+Optional signature-specific settings:
+
+```bash
+MPOWER_CALLBACK_URL=https://your-miniapp.example/api/webhooks/mpower
+SIGNATURE_STORE_DIR=/tmp/amtbrief-ai
+```
+
+Optional scheduler controls:
+
+```bash
+REMINDER_SCHEDULER_DISABLED=true
+REMINDER_SCHEDULER_INTERVAL_MS=60000
+REMINDER_SCHEDULER_INITIAL_DELAY_MS=15000
+REMINDER_SCHEDULER_LIMIT=25
+```
+
+The manual runner endpoint remains available for debugging or backfilling:
+
+```bash
+curl -X POST "https://your-miniapp.example/api/reminders/run" \
+  -H "Authorization: Bearer $REMINDER_RUN_SECRET"
+```
+
+The mPower callback endpoint is:
+
+```text
+https://your-miniapp.example/api/webhooks/mpower
+```
+
+Make sure the MiniApp callback URL in the 1DE dashboard points to this endpoint
+so mPower choice responses can mark reminders as handled or snoozed and
+signature responses can mark signed PDFs as ready.
+
+For local development without Silent SSO, set `MPOWER_TEST_USER_ID` to a test
+SuperApp user id. In production, the runner should use the OIDC `sub` from the
+signed `user_session` cookie.
+
+Current reminder and signature storage uses JSON files inside
+`REMINDER_STORE_DIR` / `SIGNATURE_STORE_DIR` or `/tmp/amtbrief-ai`. For a
+hardened production release, replace this with a managed database so reminders
+and signed-PDF status survive container replacement.
 
 ## Example document
 

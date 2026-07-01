@@ -8,8 +8,9 @@ import {
   useMemo,
   useState,
 } from "react";
-import { sampleLetter } from "@/lib/sample-documents";
+import { getSampleLetterById, sampleLetter } from "@/lib/sample-documents";
 import { normalizeAnalysis } from "@/lib/mock-ai";
+import type { ReminderCustomPoint } from "@/lib/reminders";
 import {
   AnalysisResult,
   AnalysisInputType,
@@ -34,6 +35,7 @@ type AmtBriefState = {
   replyTone: ReplyTone;
   replyStatus: ReplyStatus;
   checklistCompleted: Record<number, boolean>;
+  reminderCustomPoints: ReminderCustomPoint[] | null;
   reminderStatus: ReminderStatus;
   reminderUpdatedAt: string | null;
   error: string | null;
@@ -51,7 +53,7 @@ type AmtBriefContextValue = AmtBriefState & {
     sourceLabel: string,
     inputType: Extract<AnalysisInputType, "pdf" | "image" | "camera">,
   ) => void;
-  loadSampleDocument: () => void;
+  loadSampleDocument: (sampleId?: string) => void;
   analyzeCurrentDocument: () => Promise<void>;
   selectScan: (scanId: string) => void;
   toggleChecklistItem: (index: number) => void;
@@ -59,7 +61,10 @@ type AmtBriefContextValue = AmtBriefState & {
   setReplyDraft: (draft: string) => void;
   setReplyTone: (tone: ReplyTone) => void;
   generateReply: (tone?: ReplyTone) => Promise<void>;
-  setReminderStatus: (status: ReminderStatus) => void;
+  setReminderStatus: (
+    status: ReminderStatus,
+    customPoints?: ReminderCustomPoint[],
+  ) => Promise<void>;
   resetFlow: () => void;
 };
 
@@ -78,13 +83,14 @@ const initialState: AmtBriefState = {
   replyTone: "polite",
   replyStatus: "idle",
   checklistCompleted: {},
+  reminderCustomPoints: null,
   reminderStatus: "none",
   reminderUpdatedAt: null,
   error: null,
 };
 
 type PersistedAmtBriefState = {
-  version: 3;
+  version: 4;
   activeScanId: string | null;
   scanHistory: ScanRecord[];
 };
@@ -133,6 +139,7 @@ export function AmtBriefProvider({ children }: { children: React.ReactNode }) {
         replyDraft: "",
         replyStatus: "idle",
         checklistCompleted: {},
+        reminderCustomPoints: null,
         reminderStatus: "none",
         reminderUpdatedAt: null,
         error: null,
@@ -159,6 +166,7 @@ export function AmtBriefProvider({ children }: { children: React.ReactNode }) {
         replyDraft: "",
         replyStatus: "idle",
         checklistCompleted: {},
+        reminderCustomPoints: null,
         reminderStatus: "none",
         reminderUpdatedAt: null,
         error: null,
@@ -167,9 +175,13 @@ export function AmtBriefProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
-  const loadSampleDocument = useCallback(() => {
-    setDocument(sampleLetter.text, sampleLetter.title, "example");
-  }, [setDocument]);
+  const loadSampleDocument = useCallback(
+    (sampleId?: string) => {
+      const sample = (sampleId && getSampleLetterById(sampleId)) || sampleLetter;
+      setDocument(sample.text, sample.title, "example");
+    },
+    [setDocument],
+  );
 
   const analyzeCurrentDocument = useCallback(async () => {
     const text = state.documentText.trim();
@@ -237,6 +249,7 @@ export function AmtBriefProvider({ children }: { children: React.ReactNode }) {
         replyDraft: analysis.reply_draft_de,
         replyTone: state.replyTone,
         checklistCompleted: {},
+        reminderCustomPoints: null,
         reminderStatus: "none",
         reminderUpdatedAt: null,
       };
@@ -254,6 +267,7 @@ export function AmtBriefProvider({ children }: { children: React.ReactNode }) {
         replyDraft: analysis.reply_draft_de,
         replyStatus: "ready",
         checklistCompleted: {},
+        reminderCustomPoints: null,
         reminderStatus: "none",
         reminderUpdatedAt: null,
         error: null,
@@ -413,10 +427,29 @@ export function AmtBriefProvider({ children }: { children: React.ReactNode }) {
     [state.analysis, state.replyTone],
   );
 
-  const setReminderStatus = useCallback((status: ReminderStatus) => {
+  const setReminderStatus = useCallback(async (
+    status: ReminderStatus,
+    customPoints?: ReminderCustomPoint[],
+  ) => {
+    const activeScan = state.activeScanId
+      ? state.scanHistory.find((scan) => scan.id === state.activeScanId) ?? null
+      : null;
+
+    if (activeScan) {
+      await syncServerReminderStatus(
+        status,
+        activeScan,
+        customPoints ?? activeScan.reminderCustomPoints ?? undefined,
+      );
+    }
+
     setState((current) => {
       const updatedAt = new Date().toISOString();
       const shouldCompleteAll = status === "handled" && current.analysis;
+      const nextCustomPoints =
+        status === "scheduled"
+          ? customPoints ?? current.reminderCustomPoints
+          : current.reminderCustomPoints;
       const completedChecklist = shouldCompleteAll
         ? Object.fromEntries(
             current.analysis!.checklist.map((_, index) => [index, true]),
@@ -433,6 +466,10 @@ export function AmtBriefProvider({ children }: { children: React.ReactNode }) {
                           scan.analysis.checklist.map((_, index) => [index, true]),
                         )
                       : scan.checklistCompleted,
+                  reminderCustomPoints:
+                    status === "scheduled"
+                      ? customPoints ?? scan.reminderCustomPoints
+                      : scan.reminderCustomPoints,
                   reminderStatus: status,
                   reminderUpdatedAt: updatedAt,
                 }
@@ -443,12 +480,13 @@ export function AmtBriefProvider({ children }: { children: React.ReactNode }) {
       return {
         ...current,
         checklistCompleted: completedChecklist,
+        reminderCustomPoints: nextCustomPoints,
         scanHistory: nextHistory,
         reminderStatus: status,
         reminderUpdatedAt: updatedAt,
       };
     });
-  }, []);
+  }, [state.activeScanId, state.scanHistory]);
 
   const resetFlow = useCallback(() => {
     setState(initialState);
@@ -544,6 +582,7 @@ function hydrateStoredState(value: unknown): AmtBriefState {
             replyDraft: stored.replyDraft ?? stored.analysis.reply_draft_de,
             replyTone: stored.replyTone ?? "polite",
             checklistCompleted: stored.checklistCompleted ?? {},
+            reminderCustomPoints: null,
             reminderStatus: stored.reminderStatus ?? "none",
             reminderUpdatedAt: stored.reminderUpdatedAt ?? null,
           },
@@ -584,6 +623,7 @@ function activeFieldsFromScan(state: AmtBriefState, scan: ScanRecord): AmtBriefS
     replyTone: scan.replyTone,
     replyStatus: "ready",
     checklistCompleted: scan.checklistCompleted,
+    reminderCustomPoints: scan.reminderCustomPoints ?? null,
     reminderStatus: scan.reminderStatus,
     reminderUpdatedAt: scan.reminderUpdatedAt,
     error: null,
@@ -616,6 +656,9 @@ function normalizeScanRecord(scan: ScanRecord): ScanRecord {
     replyDraft: scan.replyDraft ?? analysis.reply_draft_de,
     replyTone: scan.replyTone ?? "polite",
     checklistCompleted: scan.checklistCompleted ?? {},
+    reminderCustomPoints: Array.isArray(scan.reminderCustomPoints)
+      ? scan.reminderCustomPoints.filter(isReminderCustomPoint)
+      : null,
     reminderStatus:
       scan.reminderStatus === "scheduled" || scan.reminderStatus === "handled"
         ? scan.reminderStatus
@@ -626,10 +669,19 @@ function normalizeScanRecord(scan: ScanRecord): ScanRecord {
 
 function toPersistedState(state: AmtBriefState): PersistedAmtBriefState {
   return {
-    version: 3,
+    version: 4,
     activeScanId: state.activeScanId,
     scanHistory: state.scanHistory.map(normalizeScanRecord),
   };
+}
+
+function isReminderCustomPoint(value: unknown): value is ReminderCustomPoint {
+  if (!value || typeof value !== "object") return false;
+  const record = value as Partial<ReminderCustomPoint>;
+  return (
+    typeof record.label === "string" &&
+    (typeof record.scheduledAt === "string" || record.scheduledAt === null)
+  );
 }
 
 function isAnalysisInputType(value: unknown): value is AnalysisInputType {
@@ -705,4 +757,55 @@ function getStoredDocumentText({
 
 function createScanId() {
   return `scan-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+async function syncServerReminderStatus(
+  status: ReminderStatus,
+  scan: ScanRecord,
+  customPoints?: ReminderCustomPoint[],
+) {
+  if (status === "scheduled") {
+    const response = await fetch("/api/reminders/schedule", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        analysis: scan.analysis,
+        customPoints,
+        scanId: scan.id,
+        sourceLabel: scan.sourceLabel,
+      }),
+    });
+
+    await assertReminderResponse(response, "Reminder could not be saved.");
+    return;
+  }
+
+  if (status === "handled") {
+    const response = await fetch("/api/reminders/handled", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        scanId: scan.id,
+      }),
+    });
+
+    await assertReminderResponse(response, "Handled status could not be saved.");
+  }
+}
+
+async function assertReminderResponse(response: Response, fallbackMessage: string) {
+  const payload = (await response.json().catch(() => null)) as
+    | { error?: string; errors?: string[]; ok?: boolean }
+    | null;
+
+  if (response.ok && payload?.ok !== false) {
+    return;
+  }
+
+  const message =
+    payload?.errors?.join(" ") ||
+    payload?.error ||
+    `${fallbackMessage} Please try again.`;
+
+  throw new Error(message);
 }

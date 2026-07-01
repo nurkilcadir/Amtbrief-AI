@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, Check, Circle, MessageSquareText } from "lucide-react";
+import { Bell, Check, Circle, Download, MessageSquareText } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { DocumentTabs } from "@/components/DocumentTabs";
 import {
@@ -10,7 +10,7 @@ import {
 } from "@/components/DocumentSummaryCard";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { useAmtBrief } from "@/components/AmtBriefProvider";
-import { getScanSectionHref } from "@/lib/routes";
+import { getScanExportHref, getScanSectionHref } from "@/lib/routes";
 
 export function ChecklistView({ scanId }: { scanId?: string }) {
   const {
@@ -126,6 +126,15 @@ export function ChecklistView({ scanId }: { scanId?: string }) {
           <PrimaryButton href={replyHref} icon={<MessageSquareText className="h-5 w-5" />}>
             {replyDraft ? "Review German reply" : "Draft German reply"}
           </PrimaryButton>
+          {scanId ? (
+            <Link
+              href={getScanExportHref(scanId)}
+              className="touch-target inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-3 text-[15px] font-semibold text-slate-800 shadow-soft active:scale-[0.99]"
+            >
+              <Download className="h-5 w-5 text-civic-600" />
+              Export visit pack
+            </Link>
+          ) : null}
           <Link
             href="/reminder"
             className="touch-target inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-3 text-[15px] font-semibold text-slate-800 shadow-soft active:scale-[0.99]"
