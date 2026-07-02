@@ -39,11 +39,16 @@ export async function POST(request: Request) {
 
   try {
     const parsed = await analyzeWithOpenRouter(prepared.input);
+    const fallbackText = prepared.input.text || createFileFallbackText(prepared.input);
     const normalized = normalizeAnalysis(
       parsed,
-      prepared.input.text || createFileFallbackText(prepared.input),
+      fallbackText,
     );
-    return NextResponse.json(groundEvidenceFields(normalized, prepared.input.text));
+    const enriched = normalizeAnalysis(
+      enrichAnalysisFromRecognizedFields(normalized),
+      buildAnalysisContext(normalized, fallbackText),
+    );
+    return NextResponse.json(groundEvidenceFields(enriched, prepared.input.text));
   } catch (error) {
     console.error("AmtBrief analysis failed", error);
     return NextResponse.json(
@@ -274,6 +279,107 @@ function groundEvidenceFields(
   return next;
 }
 
+function enrichAnalysisFromRecognizedFields(
+  analysis: ReturnType<typeof normalizeAnalysis>,
+): ReturnType<typeof normalizeAnalysis> {
+  const recognizedText = buildAnalysisContext(analysis, "");
+  const normalized = recognizedText.toLowerCase();
+  const paymentSignals = extractRecognizedPaymentSignals(recognizedText);
+  const hasFinanzamtSignal =
+    /\bfinanzamt\b/i.test(recognizedText) ||
+    /\beinkommensteuer\b/i.test(recognizedText);
+  const hasPaymentSignal =
+    paymentSignals.hasPaymentLanguage ||
+    Boolean(paymentSignals.amount) ||
+    Boolean(paymentSignals.iban) ||
+    Boolean(paymentSignals.referenceNumber);
+
+  if (!hasFinanzamtSignal && !hasPaymentSignal) {
+    return analysis;
+  }
+
+  const hasPenaltySignal =
+    /\b(zwangsgeld|bußgeld|bussgeld|versp[aä]tungszuschlag|mahnung|androhung)\b/i.test(
+      recognizedText,
+    );
+
+  return {
+    ...analysis,
+    authority_type: hasFinanzamtSignal ? "finanzamt" : analysis.authority_type,
+    document_type: hasPaymentSignal ? "payment_request" : analysis.document_type,
+    required_action_type:
+      hasPaymentSignal && analysis.required_action_type !== "file_objection"
+        ? "pay"
+        : analysis.required_action_type,
+    consequence_severity: hasPenaltySignal
+      ? "financial_penalty"
+      : analysis.consequence_severity,
+    deadline_type:
+      hasPenaltySignal || normalized.includes("nicht verlängert")
+        ? "exclusionary"
+        : analysis.deadline_type,
+    payment_needed: hasPaymentSignal || analysis.payment_needed,
+    payment_amount: analysis.payment_amount ?? paymentSignals.amount,
+    payment_iban: analysis.payment_iban ?? paymentSignals.iban,
+    proof_needed: hasPaymentSignal || analysis.proof_needed,
+    reference_number: analysis.reference_number ?? paymentSignals.referenceNumber,
+  };
+}
+
+function buildAnalysisContext(
+  analysis: ReturnType<typeof normalizeAnalysis>,
+  fallbackText: string,
+) {
+  return [
+    fallbackText,
+    analysis.category,
+    analysis.summary,
+    analysis.source_excerpt,
+    analysis.required_action,
+    analysis.deadline ?? "",
+    analysis.deadline_evidence ?? "",
+    analysis.payment_amount ?? "",
+    analysis.payment_iban ?? "",
+    analysis.reference_number ?? "",
+    analysis.recommended_next_step,
+    analysis.required_documents.join("\n"),
+    analysis.checklist.join("\n"),
+    analysis.reply_draft_de,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function extractRecognizedPaymentSignals(text: string) {
+  const iban = text.match(/\bDE\d{2}(?:\s?\d{4}){4}\s?\d{2}\b/i)?.[0] ?? null;
+  const amount =
+    text.match(/(?:betrag|höhe)\s+von\s+([\d.,]+\s*(?:euro|eur|€))/i)?.[1] ??
+    text.match(/\b([\d.,]+\s*(?:euro|eur|€))\b/i)?.[1] ??
+    null;
+  const referenceNumber =
+    text.match(/Verwendungszweck\s*:?\s*([A-ZÄÖÜ]{1,6}[-\d]{4,}[-\d]*)/i)?.[1] ??
+    text.match(/Aktenzeichen\s*:?\s*([A-ZÄÖÜ]{1,6}[-\d]{4,}[-\d]*)/i)?.[1] ??
+    text.match(/\b(FA-\d{4,}-\d{3,})\b/i)?.[1] ??
+    null;
+  const normalized = text.toLowerCase();
+  const hasPaymentLanguage =
+    normalized.includes("überweisen") ||
+    normalized.includes("ueberweisen") ||
+    normalized.includes("verwendungszweck") ||
+    normalized.includes("zwangsgeld") ||
+    normalized.includes("zahlung") ||
+    normalized.includes("betrag") ||
+    normalized.includes("konto") ||
+    Boolean(iban);
+
+  return {
+    amount,
+    hasPaymentLanguage,
+    iban,
+    referenceNumber,
+  };
+}
+
 function isGrounded(claim: string, normalizedOriginal: string, options?: { exact?: boolean }) {
   const normalizedClaim = normalizeForComparison(claim.replace(/\.\.\.$/, ""));
 
@@ -345,6 +451,9 @@ async function buildOpenRouterContent(input: AnalyzeRequest) {
     `Input source: ${input.inputType}.`,
     input.inputType === "pdf"
       ? "The PDF text was extracted locally before analysis."
+      : "",
+    input.inputType === "image" || input.inputType === "camera"
+      ? "This is a photographed/scanned letter. First read the visible text carefully like OCR. Pay special attention to the top authority header, Aktenzeichen/reference number, Betreff, deadlines, amount/Betrag, Konto/IBAN, and Verwendungszweck. If you see Finanzamt, Zwangsgeld, überweisen, Betrag, Konto, IBAN, or Verwendungszweck, classify it as a Finanzamt payment request and copy payment_amount, payment_iban, and reference_number exactly as visible. Do not ignore payment details just because the photo is imperfect."
       : "",
   ].join("\n");
 
@@ -496,7 +605,7 @@ function getDefaultSourceLabel(inputType: AnalysisInputType, fileValue: FormData
   if (inputType === "pdf") return "Uploaded PDF";
   if (inputType === "camera") return "Camera photo";
   if (inputType === "image") return "Uploaded image";
-  if (inputType === "example") return "Example letter";
+  if (inputType === "example") return "German letter example";
   return "Pasted letter";
 }
 

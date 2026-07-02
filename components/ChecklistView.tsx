@@ -220,7 +220,7 @@ export function ChecklistView({ scanId }: { scanId?: string }) {
               category={category}
               copiedField={copiedField}
               deadline={analysis.deadline}
-              iban={overview.payment.iban!}
+              iban={overview.payment.iban}
               mpowerPaymentState={mpowerPaymentState}
               onConfirmPayment={handleConfirmPayment}
               onCopy={handleCopy}
@@ -307,7 +307,7 @@ function PaymentTaskCard({
   category: string;
   copiedField: "iban" | "reference" | null;
   deadline: string | null;
-  iban: string;
+  iban: string | null;
   mpowerPaymentState: MpowerPaymentState;
   onConfirmPayment: () => Promise<void>;
   onCopy: (field: "iban" | "reference", value: string) => Promise<void>;
@@ -382,12 +382,19 @@ function PaymentTaskCard({
           {amount ? (
             <PaymentInfoRow label="Amount" value={amount} />
           ) : null}
-          <PaymentCopyRow
-            copied={copiedField === "iban"}
-            label="IBAN"
-            value={iban}
-            onCopy={() => onCopy("iban", iban)}
-          />
+          {iban ? (
+            <PaymentCopyRow
+              copied={copiedField === "iban"}
+              label="IBAN"
+              value={iban}
+              onCopy={() => onCopy("iban", iban)}
+            />
+          ) : (
+            <PaymentInfoRow
+              label="IBAN"
+              value="Not safely detected - check the original letter before paying"
+            />
+          )}
           {referenceNumber ? (
             <PaymentCopyRow
               copied={copiedField === "reference"}

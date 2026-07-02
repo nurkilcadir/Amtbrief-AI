@@ -165,7 +165,7 @@ export function buildTaskChecklist(input: TaskInput): string[] {
     addTask(tasks, {
       key: "reply",
       priority: 30,
-      text: "Review and send the German reply draft",
+      text: "Review and send the reply draft",
     });
   }
 

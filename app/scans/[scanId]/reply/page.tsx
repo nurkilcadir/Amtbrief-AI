@@ -11,11 +11,11 @@ export default function ScanReplyPage() {
   const { isActive, scan } = useRoutedScan(scanId);
 
   if (!scan) {
-    return <ScanRouteState kind="missing" title="German reply" />;
+    return <ScanRouteState kind="missing" title="Reply" />;
   }
 
   if (!isActive || !analysis) {
-    return <ScanRouteState kind="loading" title="German reply" />;
+    return <ScanRouteState kind="loading" title="Reply" />;
   }
 
   return <ReplyView scanId={scan.id} />;

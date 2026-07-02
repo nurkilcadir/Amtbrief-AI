@@ -102,7 +102,7 @@ export function buildMockAnalysis(letterText: string): AnalysisResult {
         "Read the letter once and highlight every date, reference number, and requested document.",
         "Collect all documents named in the letter.",
         "Check whether a reply is required before an appointment or deadline.",
-        "Draft a short German reply asking for confirmation or more time if needed.",
+        "Draft a short reply asking for confirmation or more time if needed.",
         "Save a copy of the letter and your reply.",
         "Set a reminder at least three days before the deadline.",
       ],
@@ -156,7 +156,7 @@ export function buildMockAnalysis(letterText: string): AnalysisResult {
       "Download or request proof of health insurance.",
       "Prepare your rental contract or landlord confirmation.",
       "Collect income proof for the last three months or your enrollment certificate.",
-      "Send a short German reply confirming the appointment or asking for a new date.",
+      "Send a short reply confirming the appointment or asking for a new date.",
     ],
     recommended_next_step:
       "Prepare the missing documents today and send a short confirmation to the Ausländerbehörde so there is a written record before the appointment.",

@@ -137,7 +137,7 @@ export function ReplyView({ scanId }: { scanId?: string }) {
 
   if (!analysis) {
     return (
-      <AppShell title="German reply">
+      <AppShell title="Reply">
         <section className="app-card p-5">
           <h2 className="text-xl font-semibold text-ink">No reply draft yet</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
@@ -196,6 +196,7 @@ export function ReplyView({ scanId }: { scanId?: string }) {
         signature: ClientSignature | null;
       };
       setSignature(data.signature);
+      setSignatureRequestStatus("idle");
     } catch (error) {
       setSignatureError(
         error instanceof Error
@@ -228,7 +229,7 @@ export function ReplyView({ scanId }: { scanId?: string }) {
                 Reply draft
               </p>
               <h2 className="mt-1 text-xl font-semibold leading-tight text-ink">
-                Ready-to-send German reply
+                Ready-to-send reply
               </h2>
             </div>
             <span className="rounded-full bg-mint px-2.5 py-1 text-xs font-semibold text-emerald-700">
@@ -266,7 +267,7 @@ export function ReplyView({ scanId }: { scanId?: string }) {
             <div className="min-w-0">
               <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
                 <Sparkles className="h-4 w-4 text-civic-600" />
-                German reply draft
+                Reply draft
               </div>
               <p className="mt-1 text-xs text-slate-500">{currentToneLabel} tone</p>
             </div>

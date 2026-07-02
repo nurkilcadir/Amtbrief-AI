@@ -140,7 +140,12 @@ export function buildOverviewModel(
       authorityLink: getAuthorityLink(analysis.authority_type),
       iban: analysis.payment_iban,
       referenceNumber: analysis.reference_number,
-      visible: analysis.payment_needed && Boolean(analysis.payment_iban),
+      visible:
+        analysis.payment_needed ||
+        analysis.document_type === "payment_request" ||
+        analysis.required_action_type === "pay" ||
+        Boolean(analysis.payment_amount) ||
+        Boolean(analysis.payment_iban),
     },
     priority: getPriorityMeta(
       analysis.risk_level,
@@ -407,7 +412,7 @@ function getSourceTypeLabel(inputType: AnalysisInputType | null | undefined) {
   if (inputType === "camera") return "Camera scan";
   if (inputType === "image") return "Uploaded image";
   if (inputType === "pdf") return "PDF upload";
-  if (inputType === "example") return "Sample letter";
+  if (inputType === "example") return "German letter example";
   if (inputType === "text") return "Pasted text";
   return "Document input";
 }

@@ -204,7 +204,9 @@ export function ExportPackView({ scan }: { scan: ScanRecord }) {
                   </p>
                 ) : null}
                 <p>
-                  <strong>IBAN:</strong> {overview.payment.iban}
+                  <strong>IBAN:</strong>{" "}
+                  {overview.payment.iban ??
+                    "Nicht sicher erkannt - bitte Originalbrief prüfen"}
                 </p>
                 {overview.payment.referenceNumber ? (
                   <p>
@@ -314,7 +316,12 @@ function buildPlainTextPack(scan: ScanRecord, overview: OverviewModel) {
     overview.payment.visible ? "" : null,
     overview.payment.visible ? "Zahlungsdaten aus dem Schreiben" : null,
     overview.payment.amount ? `Betrag: ${overview.payment.amount}` : null,
-    overview.payment.visible ? `IBAN: ${overview.payment.iban}` : null,
+    overview.payment.visible
+      ? `IBAN: ${
+          overview.payment.iban ??
+          "Nicht sicher erkannt - bitte Originalbrief prüfen"
+        }`
+      : null,
     overview.payment.referenceNumber
       ? `Verwendungszweck: ${overview.payment.referenceNumber}`
       : null,

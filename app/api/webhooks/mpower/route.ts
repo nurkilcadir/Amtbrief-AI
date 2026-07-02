@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { hasMpowerConfig, sendPlainMpowerMessage } from "@/lib/server/mpower";
+import { rememberDocumentOpenIntent } from "@/lib/server/open-intents";
 import { applyMpowerChoice } from "@/lib/server/reminder-store";
 import { applySignatureCallback } from "@/lib/server/signature-store";
 
@@ -64,6 +65,24 @@ export async function POST(request: Request) {
 
     console.log(`AmtBrief webhook: signatureCallback action=${result.action} signatureId=${result.signature?.id}`);
 
+    if (result.action === "signed" && result.signature && hasMpowerConfig()) {
+      rememberDocumentOpenIntent({
+        scanId: result.signature.scanId,
+        section: "reply",
+        userId,
+      });
+
+      await sendPlainMpowerMessage({
+        messageText: buildSignedReplyMessage({
+          scanId: result.signature.scanId,
+          sourceLabel: result.signature.sourceLabel,
+        }),
+        userId,
+      }).catch((error) => {
+        console.error("AmtBrief webhook: signed reply chat message failed", error);
+      });
+    }
+
     return NextResponse.json({
       ok: true,
       action: result.action,
@@ -127,4 +146,20 @@ function buildOpenMiniAppMessage() {
   }
 
   return `Open AmtBrief AI and review your checklist: ${shareBase}${serviceId}`;
+}
+
+function buildSignedReplyMessage(input: { scanId: string; sourceLabel: string }) {
+  const shareBase = process.env.MINIAPP_SHARE_BASE;
+  const serviceId = process.env.MPOWER_SERVICE_UUID ?? process.env.OIDC_CLIENT_ID;
+  const title = input.sourceLabel || "your AmtBrief AI reply";
+
+  if (!shareBase || !serviceId) {
+    return `Your signed PDF is ready for ${title}. Open AmtBrief AI and go to the Reply tab.`;
+  }
+
+  const openLink = `${shareBase}${serviceId}?open=reply&scanId=${encodeURIComponent(
+    input.scanId,
+  )}`;
+
+  return `Your signed PDF is ready for ${title}. Open the Reply tab to download it: ${openLink}`;
 }

@@ -31,6 +31,7 @@ import { getTaskHref, getTaskRisk } from "@/lib/task-actions";
 import { AnalysisResult, ReminderStatus, RiskLevel, ScanRecord } from "@/lib/types";
 import { getScanSectionHref } from "@/lib/routes";
 import type { T } from "@/lib/i18n";
+import type { DocumentSection } from "@/lib/routes";
 
 
 type AuthProfile = {
@@ -102,7 +103,7 @@ export default function HomePage() {
 
     let cancelled = false;
 
-    function openScanChecklist(scanId: string) {
+    function openScanSection(scanId: string, section: DocumentSection = "checklist") {
       if (cancelled) return false;
 
       const scanExists = scanHistory.some((scan) => scan.id === scanId);
@@ -110,22 +111,22 @@ export default function HomePage() {
       if (!scanExists) return false;
 
       selectScan(scanId);
-      router.replace(getScanSectionHref(scanId, "checklist"));
+      router.replace(getScanSectionHref(scanId, section));
       return true;
     }
 
-    async function openPendingChecklistIntent() {
-      const queryScanId =
-        searchParams.get("open") === "checklist" ? searchParams.get("scanId") : null;
+    async function openPendingDocumentIntent() {
+      const querySection = parseDocumentSection(searchParams.get("open"));
+      const queryScanId = querySection ? searchParams.get("scanId") : null;
 
-      if (queryScanId && openScanChecklist(queryScanId)) {
+      if (queryScanId && openScanSection(queryScanId, querySection ?? "checklist")) {
         return;
       }
 
       if (!wasRecentInternalNavigation()) {
         const localIntent = consumeLocalChecklistOpenIntent();
 
-        if (localIntent?.scanId && openScanChecklist(localIntent.scanId)) {
+        if (localIntent?.scanId && openScanSection(localIntent.scanId, "checklist")) {
           return;
         }
       }
@@ -137,16 +138,17 @@ export default function HomePage() {
       if (!response?.ok || cancelled) return;
 
       const payload = (await response.json().catch(() => null)) as
-        | { intent?: { scanId?: string } | null }
+        | { intent?: { scanId?: string; section?: string } | null }
         | null;
       const scanId = payload?.intent?.scanId;
+      const section = parseDocumentSection(payload?.intent?.section) ?? "checklist";
 
       if (!scanId || cancelled) return;
 
-      openScanChecklist(scanId);
+      openScanSection(scanId, section);
     }
 
-    void openPendingChecklistIntent();
+    void openPendingDocumentIntent();
 
     return () => {
       cancelled = true;
@@ -565,6 +567,14 @@ function translateCtaLabel(label: string, t: T) {
   if (label === "Confirm final step") return t.home.cta_confirmFinal;
   if (label === "View scans") return t.home.cta_viewScans;
   return label;
+}
+
+function parseDocumentSection(value: string | null | undefined): DocumentSection | null {
+  if (value === "overview" || value === "checklist" || value === "reply") {
+    return value;
+  }
+
+  return null;
 }
 
 function inferAuthority(category: string, sourceLabel: string) {

@@ -193,7 +193,7 @@ export function AmtBriefProvider({ children }: { children: React.ReactNode }) {
       setState((current) => ({
         ...current,
         analysisStatus: "error",
-        error: "Paste a letter, upload a document, or choose an example letter first.",
+        error: "Paste a letter, upload a document, or choose a typical letter situation first.",
       }));
       return;
     }

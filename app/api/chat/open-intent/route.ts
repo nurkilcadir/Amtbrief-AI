@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { consumeChecklistOpenIntent } from "@/lib/server/open-intents";
+import { consumeDocumentOpenIntent } from "@/lib/server/open-intents";
 import { getCurrentUserId } from "@/lib/server/session";
 
 export const runtime = "nodejs";
 
 export async function GET() {
   const userId = await getCurrentUserId();
-  const intent = consumeChecklistOpenIntent(userId);
+  const intent = consumeDocumentOpenIntent(userId);
 
   if (!intent) {
     return NextResponse.json({ intent: null });
@@ -14,6 +14,7 @@ export async function GET() {
 
   return NextResponse.json({
     intent: {
+      section: intent.section,
       scanId: intent.scanId,
     },
   });

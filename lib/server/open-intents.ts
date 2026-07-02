@@ -1,33 +1,52 @@
-type ChecklistOpenIntent = {
+import type { DocumentSection } from "@/lib/routes";
+
+type DocumentOpenIntent = {
   createdAt: number;
   expiresAt: number;
+  section: DocumentSection;
   scanId: string;
 };
 
-const checklistOpenIntents = new Map<string, ChecklistOpenIntent>();
+const documentOpenIntents = new Map<string, DocumentOpenIntent>();
 const intentTtlMs = 2 * 60 * 60 * 1000;
 
 export function rememberChecklistOpenIntent(input: {
   scanId: string;
   userId: string;
 }) {
+  rememberDocumentOpenIntent({
+    ...input,
+    section: "checklist",
+  });
+}
+
+export function rememberDocumentOpenIntent(input: {
+  scanId: string;
+  section: DocumentSection;
+  userId: string;
+}) {
   cleanupExpiredIntents();
 
-  checklistOpenIntents.set(input.userId, {
+  documentOpenIntents.set(input.userId, {
     createdAt: Date.now(),
     expiresAt: Date.now() + intentTtlMs,
+    section: input.section,
     scanId: input.scanId,
   });
 }
 
 export function consumeChecklistOpenIntent(userId: string) {
-  const intent = checklistOpenIntents.get(userId);
+  return consumeDocumentOpenIntent(userId);
+}
+
+export function consumeDocumentOpenIntent(userId: string) {
+  const intent = documentOpenIntents.get(userId);
 
   if (!intent) {
     return null;
   }
 
-  checklistOpenIntents.delete(userId);
+  documentOpenIntents.delete(userId);
 
   if (intent.expiresAt <= Date.now()) {
     return null;
@@ -39,9 +58,9 @@ export function consumeChecklistOpenIntent(userId: string) {
 function cleanupExpiredIntents() {
   const now = Date.now();
 
-  for (const [userId, intent] of checklistOpenIntents.entries()) {
+  for (const [userId, intent] of documentOpenIntents.entries()) {
     if (intent.expiresAt <= now) {
-      checklistOpenIntents.delete(userId);
+      documentOpenIntents.delete(userId);
     }
   }
 }

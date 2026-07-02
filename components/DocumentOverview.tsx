@@ -282,17 +282,25 @@ export function DocumentOverview({
 
           <p className="mt-2 text-xs leading-5 text-slate-500">
             AmtBrief AI does not process this payment. Transfer it yourself via your
-            bank to the account below - the amount and IBAN are taken verbatim from
-            the letter, but please double-check them before sending money.
+            bank using the official details in the letter. Any detected amount,
+            IBAN, and reference are shown below, but please double-check them
+            before sending money.
           </p>
 
           <div className="mt-3 space-y-2">
-            <CopyRow
-              label="IBAN"
-              value={overview.payment.iban!}
-              copied={copiedField === "iban"}
-              onCopy={() => handleCopy("iban", overview.payment.iban!)}
-            />
+            {overview.payment.iban ? (
+              <CopyRow
+                label="IBAN"
+                value={overview.payment.iban}
+                copied={copiedField === "iban"}
+                onCopy={() => handleCopy("iban", overview.payment.iban!)}
+              />
+            ) : (
+              <InfoRow
+                label="IBAN"
+                value="Not safely detected - check the original letter before paying"
+              />
+            )}
             {overview.payment.referenceNumber ? (
               <CopyRow
                 label="Reference (Verwendungszweck)"
@@ -491,6 +499,17 @@ function CopyRow({
         <Copy className="h-3.5 w-3.5" />
         {copied ? "Copied" : "Copy"}
       </button>
+    </div>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2.5">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-amber-700">
+        {label}
+      </p>
+      <p className="mt-0.5 text-sm font-medium leading-5 text-amber-900">{value}</p>
     </div>
   );
 }

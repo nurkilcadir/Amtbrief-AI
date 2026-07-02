@@ -18,7 +18,7 @@ export function AppShell({
   const { t } = useLang();
 
   const navItems = [
-    { href: "/", label: t.nav.start, icon: Home, matches: ["/"], center: false },
+    { href: "/", label: "Home", icon: Home, matches: ["/"], center: false },
     { href: "/input", label: t.nav.scan, icon: Plus, matches: ["/input", "/analysis"], center: true },
     {
       href: "/scans",
