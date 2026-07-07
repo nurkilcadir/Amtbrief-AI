@@ -16,3 +16,13 @@ pnpm-debug.log*
 .claude/
 *.zip
 .build-timestamp
+
+# Capacitor / iOS native build artifacts
+ios/App/Pods/
+ios/App/App/public/
+ios/App/App/capacitor.config.json
+ios/App/output/
+ios/DerivedData/
+DerivedData/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/

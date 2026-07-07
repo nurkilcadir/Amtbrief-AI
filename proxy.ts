@@ -11,6 +11,26 @@ export async function proxy(request: NextRequest) {
     return NextResponse.rewrite(webhookUrl);
   }
 
+  // Standalone (independent mobile app): use our own /login screen instead of
+  // the SuperApp's Silent SSO. Everything else stays gated behind a session.
+  if (isStandaloneAuth()) {
+    if (isPublicPath(pathname) || pathname === "/login") {
+      return continueRequest(pathname);
+    }
+
+    const sessionCookie = request.cookies.get("user_session")?.value;
+    if (sessionCookie && (await isSessionValid(sessionCookie))) {
+      return continueRequest(pathname);
+    }
+
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = "/login";
+    loginUrl.search = "";
+    const response = NextResponse.redirect(loginUrl);
+    if (sessionCookie) response.cookies.delete("user_session");
+    return response;
+  }
+
   if (!isOidcEnabled() || isPublicPath(pathname)) {
     return continueRequest(pathname);
   }
@@ -37,6 +57,15 @@ export async function proxy(request: NextRequest) {
   url.search = "";
   url.searchParams.set("next", `${pathname}${search}`);
   return NextResponse.redirect(url);
+}
+
+function isStandaloneAuth() {
+  return (
+    process.env.STANDALONE_AUTH === "1" ||
+    process.env.STANDALONE_AUTH === "true" ||
+    process.env.NEXT_PUBLIC_STANDALONE_AUTH === "1" ||
+    process.env.NEXT_PUBLIC_STANDALONE_AUTH === "true"
+  );
 }
 
 export const config = {
