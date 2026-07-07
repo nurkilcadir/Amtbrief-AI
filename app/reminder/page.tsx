@@ -23,6 +23,10 @@ import {
 } from "@/lib/reminders";
 import type { ReminderCustomPoint, ReminderPoint } from "@/lib/reminders";
 import { getScanSectionHref } from "@/lib/routes";
+import {
+  clearReminderNotifications,
+  scheduleReminderNotifications,
+} from "@/lib/native-notifications";
 import type { ReminderStatus } from "@/lib/types";
 
 type EditableReminderPoint = {
@@ -38,6 +42,7 @@ export default function ReminderPage() {
     reminderCustomPoints,
     reminderStatus,
     setReminderStatus,
+    sourceLabel,
   } = useAmtBrief();
   const [customizing, setCustomizing] = useState(false);
   const [editablePoints, setEditablePoints] = useState<EditableReminderPoint[]>([]);
@@ -104,6 +109,21 @@ export default function ReminderPage() {
 
     try {
       await setReminderStatus(status, customPoints);
+      // Native app: mirror the reminder as on-device notifications (the
+      // SuperApp MiniApp path uses the server-side mPower scheduler instead).
+      if (activeScanId) {
+        const title = sourceLabel || analysis?.category || "Official letter";
+        if (status === "scheduled") {
+          const points = customPoints ?? reminderPlan.points;
+          void scheduleReminderNotifications({
+            scanId: activeScanId,
+            title,
+            points: points.map((p) => ({ label: p.label, scheduledAt: p.scheduledAt })),
+          });
+        } else if (status === "handled") {
+          void clearReminderNotifications(activeScanId);
+        }
+      }
       return true;
     } catch (error) {
       setReminderSaveError(

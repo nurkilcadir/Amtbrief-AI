@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AmtBriefProvider } from "@/components/AmtBriefProvider";
 import { LanguageProvider } from "@/components/LanguageProvider";
+import { NativeBridge } from "@/components/NativeBridge";
 
 export const metadata: Metadata = {
   title: "AmtBrief AI",
@@ -28,7 +29,10 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <LanguageProvider>
-          <AmtBriefProvider>{children}</AmtBriefProvider>
+          <AmtBriefProvider>
+            <NativeBridge />
+            {children}
+          </AmtBriefProvider>
         </LanguageProvider>
       </body>
     </html>

@@ -10,6 +10,7 @@ import {
 } from "react";
 import { getSampleLetterById, sampleLetter } from "@/lib/sample-documents";
 import { rememberLocalChecklistOpenIntent } from "@/lib/client-open-intent";
+import { notifyAnalysisReady } from "@/lib/native-notifications";
 import { normalizeAnalysis } from "@/lib/mock-ai";
 import type { ReminderCustomPoint } from "@/lib/reminders";
 import {
@@ -274,7 +275,13 @@ export function AmtBriefProvider({ children }: { children: React.ReactNode }) {
         error: null,
       }));
 
+      // SuperApp MiniApp → mPower chat summary. Native app → local notification.
       void syncChecklistChatSummary(scan);
+      void notifyAnalysisReady({
+        scanId: scan.id,
+        title: scan.sourceLabel || scan.analysis.category || "Official letter",
+        openCount: scan.analysis.checklist.length,
+      });
     } catch (error) {
       const remaining = Math.max(0, 2000 - (Date.now() - startedAt));
       await delay(remaining);
