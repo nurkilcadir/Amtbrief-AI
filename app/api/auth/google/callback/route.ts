@@ -5,11 +5,14 @@ import {
   callbackUrl,
   consumeStateCookie,
   decodeIdTokenPayload,
+  decodeState,
   getAppUrl,
   googleConfigured,
   issueSession,
+  nativeRedirect,
   sessionFromClaims,
 } from "@/lib/server/social-auth";
+import { createExchangeToken } from "@/lib/server/auth-exchange";
 
 export const runtime = "nodejs";
 
@@ -21,7 +24,7 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
-  const state = url.searchParams.get("state") ?? "";
+  const { mode, state } = decodeState(url.searchParams.get("state") ?? "");
 
   if (url.searchParams.get("error") || !code) {
     return NextResponse.redirect(`${appUrl}/login?error=google_cancelled`);
@@ -57,7 +60,16 @@ export async function GET(request: Request) {
       issuers: ["https://accounts.google.com", "accounts.google.com"],
     });
 
-    await issueSession(sessionFromClaims(payload, "google"));
+    const session = sessionFromClaims(payload, "google");
+
+    if (mode === "native") {
+      // Session can't be set on the system browser — hand a one-time code to
+      // the app via deep link; the app exchanges it inside its WebView.
+      const token = createExchangeToken(session);
+      return NextResponse.redirect(nativeRedirect("google", token));
+    }
+
+    await issueSession(session);
     return NextResponse.redirect(`${appUrl}/`);
   } catch (error) {
     console.error("AmtBrief: Google sign-in failed", error);

@@ -4,17 +4,19 @@ import {
   appleConfigured,
   callbackUrl,
   createState,
+  encodeState,
   getAppUrl,
   setStateCookie,
 } from "@/lib/server/social-auth";
 
 export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(request: Request) {
   if (!isStandaloneAuth() || !appleConfigured()) {
     return NextResponse.redirect(`${getAppUrl() || ""}/login?error=apple_unavailable`);
   }
 
+  const mode = new URL(request.url).searchParams.get("mode") === "native" ? "native" : "web";
   const state = createState();
   await setStateCookie("apple", state);
 
@@ -25,7 +27,7 @@ export async function GET() {
     scope: "name email",
     // Apple sends the callback as a POST form when name/email scope is used.
     response_mode: "form_post",
-    state,
+    state: encodeState(mode, state),
   });
 
   return NextResponse.redirect(

@@ -15,6 +15,30 @@ export const OAUTH_STATE_COOKIE = "oauth_state";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 const STATE_MAX_AGE = 60 * 10; // 10 min
 
+// Custom URL scheme the native app registers, so the system-browser OAuth flow
+// can hand control back to the app via a deep link.
+export const NATIVE_SCHEME = "amtbrief";
+
+export type OAuthMode = "web" | "native";
+
+// Mode travels in the OAuth `state` param (round-tripped by Google/Apple) so
+// the callback knows whether to set a cookie (web) or hand back a code (native)
+// — without changing the state cookie format.
+export function encodeState(mode: OAuthMode, state: string) {
+  return `${mode}~${state}`;
+}
+
+export function decodeState(returned: string): { mode: OAuthMode; state: string } {
+  const idx = returned.indexOf("~");
+  if (idx === -1) return { mode: "web", state: returned };
+  const mode = returned.slice(0, idx) === "native" ? "native" : "web";
+  return { mode, state: returned.slice(idx + 1) };
+}
+
+export function nativeRedirect(provider: string, code: string) {
+  return `${NATIVE_SCHEME}://auth?provider=${encodeURIComponent(provider)}&code=${encodeURIComponent(code)}`;
+}
+
 export function googleConfigured() {
   return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 }

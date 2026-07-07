@@ -3,6 +3,7 @@ import { isStandaloneAuth } from "@/lib/server/standalone-auth";
 import {
   callbackUrl,
   createState,
+  encodeState,
   getAppUrl,
   googleConfigured,
   setStateCookie,
@@ -10,11 +11,12 @@ import {
 
 export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(request: Request) {
   if (!isStandaloneAuth() || !googleConfigured()) {
     return NextResponse.redirect(`${getAppUrl() || ""}/login?error=google_unavailable`);
   }
 
+  const mode = new URL(request.url).searchParams.get("mode") === "native" ? "native" : "web";
   const state = createState();
   await setStateCookie("google", state);
 
@@ -23,7 +25,7 @@ export async function GET() {
     redirect_uri: callbackUrl("google"),
     response_type: "code",
     scope: "openid email profile",
-    state,
+    state: encodeState(mode, state),
     access_type: "online",
     prompt: "select_account",
   });

@@ -45,6 +45,17 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>ai.amtbrief.app</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>amtbrief</string>
+			</array>
+		</dict>
+	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>AmtBrief AI uses the camera so you can photograph an official letter for analysis.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

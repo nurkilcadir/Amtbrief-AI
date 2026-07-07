@@ -7,10 +7,13 @@ import {
   callbackUrl,
   consumeStateCookie,
   decodeIdTokenPayload,
+  decodeState,
   getAppUrl,
   issueSession,
+  nativeRedirect,
   sessionFromClaims,
 } from "@/lib/server/social-auth";
+import { createExchangeToken } from "@/lib/server/auth-exchange";
 import type { UserSession } from "@/lib/server/auth";
 
 export const runtime = "nodejs";
@@ -24,7 +27,7 @@ export async function POST(request: Request) {
 
   const form = await request.formData();
   const code = String(form.get("code") ?? "");
-  const state = String(form.get("state") ?? "");
+  const { mode, state } = decodeState(String(form.get("state") ?? ""));
   const userJson = form.get("user"); // present only on the first authorization
 
   if (form.get("error") || !code) {
@@ -63,6 +66,11 @@ export async function POST(request: Request) {
 
     const session = sessionFromClaims(payload, "apple");
     mergeAppleName(session, userJson);
+
+    if (mode === "native") {
+      const token = createExchangeToken(session);
+      return NextResponse.redirect(nativeRedirect("apple", token), 303);
+    }
 
     await issueSession(session);
     return NextResponse.redirect(`${appUrl}/`, 303);

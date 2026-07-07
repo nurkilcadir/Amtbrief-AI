@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Landmark, Loader2, Mail, ArrowRight } from "lucide-react";
+import { isNativePlatform, nativeSocialLogin } from "@/lib/native-auth";
 
 type Providers = {
   google: boolean;
@@ -25,13 +26,29 @@ function LoginInner() {
   const [providers, setProviders] = useState<Providers>({ google: false, apple: false, email: true });
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
-  const [status, setStatus] = useState<"idle" | "submitting" | "guest">("idle");
+  const [status, setStatus] = useState<"idle" | "submitting" | "guest" | "social">("idle");
   const [error, setError] = useState("");
+  const [native, setNative] = useState(false);
 
   useEffect(() => {
     const urlError = searchParams.get("error");
     if (urlError && ERRORS[urlError]) setError(ERRORS[urlError]);
   }, [searchParams]);
+
+  useEffect(() => {
+    isNativePlatform().then(setNative).catch(() => {});
+  }, []);
+
+  async function socialLogin(provider: "google" | "apple") {
+    setError("");
+    setStatus("social");
+    try {
+      await nativeSocialLogin(provider);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Sign-in failed. Please try again.");
+      setStatus("idle");
+    }
+  }
 
   useEffect(() => {
     fetch("/api/auth/providers")
@@ -83,22 +100,24 @@ function LoginInner() {
       {hasSocial ? (
         <div className="space-y-3">
           {providers.google ? (
-            <a
+            <SocialButton
+              native={native}
               href="/api/auth/google/start"
-              className="touch-target flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-5 py-3.5 text-[15px] font-semibold text-slate-800 shadow-soft active:scale-[0.99]"
-            >
-              <GoogleIcon />
-              Continue with Google
-            </a>
+              onNative={() => socialLogin("google")}
+              disabled={busy}
+              icon={<GoogleIcon />}
+              label="Continue with Google"
+            />
           ) : null}
           {providers.apple ? (
-            <a
+            <SocialButton
+              native={native}
               href="/api/auth/apple/start"
-              className="touch-target flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-5 py-3.5 text-[15px] font-semibold text-slate-800 shadow-soft active:scale-[0.99]"
-            >
-              <AppleIcon />
-              Continue with Apple
-            </a>
+              onNative={() => socialLogin("apple")}
+              disabled={busy}
+              icon={<AppleIcon />}
+              label="Continue with Apple"
+            />
           ) : null}
         </div>
       ) : null}
@@ -171,6 +190,41 @@ export default function LoginPage() {
     <Suspense fallback={null}>
       <LoginInner />
     </Suspense>
+  );
+}
+
+function SocialButton({
+  native,
+  href,
+  onNative,
+  disabled,
+  icon,
+  label,
+}: {
+  native: boolean;
+  href: string;
+  onNative: () => void;
+  disabled: boolean;
+  icon: React.ReactNode;
+  label: string;
+}) {
+  const className =
+    "touch-target flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-5 py-3.5 text-[15px] font-semibold text-slate-800 shadow-soft active:scale-[0.99] disabled:opacity-60";
+
+  if (native) {
+    return (
+      <button type="button" onClick={onNative} disabled={disabled} className={className}>
+        {icon}
+        {label}
+      </button>
+    );
+  }
+
+  return (
+    <a href={href} className={className}>
+      {icon}
+      {label}
+    </a>
   );
 }
 
