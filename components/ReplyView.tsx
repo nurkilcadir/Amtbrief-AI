@@ -123,7 +123,7 @@ export function ReplyView({ scanId }: { scanId?: string }) {
   }, [refreshSignatureStatus]);
 
   // Poll while a signature request is pending so the status (and download
-  // link) update automatically once the user signs in the SuperApp, instead
+  // link) update automatically once the user signs in the Deutschland App, instead
   // of requiring a manual "Refresh signature status" tap.
   useEffect(() => {
     if (signature?.status !== "requested") return;
@@ -313,7 +313,7 @@ export function ReplyView({ scanId }: { scanId?: string }) {
                     Signed PDF
                   </div>
                   <p className="mt-1 text-sm leading-6 text-civic-800">
-                    Create an official PDF and send it to SuperApp for signing.
+                    Create an official PDF and send it to Deutschland App for signing.
                   </p>
                 </div>
                 {signature?.status ? <SignaturePill status={signature.status} /> : null}
@@ -331,7 +331,7 @@ export function ReplyView({ scanId }: { scanId?: string }) {
 
               {signature?.status === "requested" ? (
                 <p className="mt-3 text-sm leading-6 text-civic-800">
-                  Signature request sent. Sign the PDF in SuperApp, then refresh
+                  Signature request sent. Sign the PDF in Deutschland App, then refresh
                   this status.
                 </p>
               ) : null}
@@ -361,7 +361,7 @@ export function ReplyView({ scanId }: { scanId?: string }) {
                     }
                   >
                     {signatureRequestStatus === "requesting"
-                      ? "Sending to SuperApp"
+                      ? "Sending to Deutschland App"
                       : "Send PDF for signature"}
                   </PrimaryButton>
                 )}

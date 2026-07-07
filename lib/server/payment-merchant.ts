@@ -4,6 +4,10 @@ type MerchantToken = {
 };
 
 type CreateTransactionResult = {
+  deepLink?: string | null;
+  paymentUrl?: string | null;
+  rawKeys: string[];
+  redirectUrl?: string | null;
   transactionId: string;
   status: string;
 };
@@ -18,6 +22,10 @@ export function hasPaymentMerchantConfig() {
       process.env.PAYMENT_MERCHANT_SECRET &&
       process.env.PAYMENT_TENANT_ID,
   );
+}
+
+export function hasDedicatedPaymentMerchantConfig() {
+  return Boolean(hasPaymentMerchantConfig() && process.env.PAYMENT_MERCHANT_ID !== process.env.OIDC_CLIENT_ID);
 }
 
 /**
@@ -76,13 +84,41 @@ export async function createPaymentTransaction(input: {
     );
   }
 
-  const data = (await response.json()) as { transactionId?: string; status?: string };
+  const data = (await response.json()) as Record<string, unknown>;
+  const transactionId = getString(data.transactionId);
 
-  if (!data.transactionId) {
-    throw new Error("mPower payment response did not include transactionId");
+  if (!transactionId) {
+    throw new Error(
+      `mPower payment response did not include transactionId. Response keys: ${Object.keys(data).join(", ") || "none"}`,
+    );
   }
 
-  return { transactionId: data.transactionId, status: data.status ?? "new" };
+  const paymentUrl = firstString(data, [
+    "paymentUrl",
+    "paymentLink",
+    "url",
+    "checkoutUrl",
+  ]);
+  const redirectUrl = firstString(data, [
+    "redirectUrl",
+    "redirectUri",
+    "redirectURL",
+  ]);
+  const deepLink = firstString(data, ["deepLink", "deeplink", "paymentDeepLink"]);
+  const rawKeys = Object.keys(data);
+
+  console.log(
+    `AmtBrief: payment transaction created transactionId=${transactionId} status=${getString(data.status) ?? "new"} hasPaymentUrl=${Boolean(paymentUrl)} hasRedirectUrl=${Boolean(redirectUrl)} hasDeepLink=${Boolean(deepLink)} responseKeys=${rawKeys.join(",") || "none"}`,
+  );
+
+  return {
+    deepLink,
+    paymentUrl,
+    rawKeys,
+    redirectUrl,
+    transactionId,
+    status: getString(data.status) ?? "new",
+  };
 }
 
 export function isPaymentFinished(status: string | undefined | null) {
@@ -109,7 +145,10 @@ async function getMerchantToken() {
   });
 
   if (!response.ok) {
-    throw new Error(`Payment merchant token request failed with status ${response.status}`);
+    const detail = await response.text().catch(() => "");
+    throw new Error(
+      `Payment merchant token request failed with status ${response.status}${formatDetail(detail)}`,
+    );
   }
 
   const data = (await response.json()) as { access_token?: string; expires_in?: number };
@@ -134,4 +173,21 @@ function requireEnv(key: string) {
   }
 
   return value;
+}
+
+function formatDetail(detail: string) {
+  return detail ? `: ${detail.slice(0, 240)}` : "";
+}
+
+function getString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function firstString(data: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = getString(data[key]);
+    if (value) return value;
+  }
+
+  return null;
 }

@@ -34,7 +34,7 @@ export function buildChecklistChatMessage({
     : "";
   const openLine = openLink
     ? `\nOpen AmtBrief AI to continue: ${openLink}`
-    : "\nOpen AmtBrief AI in the SuperApp to continue.";
+    : "\nOpen AmtBrief AI in the Deutschland App to continue.";
 
   return [
     "AmtBrief AI analyzed your letter:",

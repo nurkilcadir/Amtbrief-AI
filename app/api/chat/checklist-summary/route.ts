@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { buildChecklistChatMessage } from "@/lib/chat-summary";
-import { hasMpowerConfig, sendPlainMpowerMessage } from "@/lib/server/mpower";
+import { buildMiniAppShareLink } from "@/lib/server/miniapp-links";
+import { hasMpowerConfig, sendChoiceMpowerMessage } from "@/lib/server/mpower";
 import { rememberChecklistOpenIntent } from "@/lib/server/open-intents";
 import { getCurrentUserId } from "@/lib/server/session";
 import type { AnalysisResult } from "@/lib/types";
@@ -37,10 +38,14 @@ export async function POST(request: Request) {
   });
 
   try {
-    const result = await sendPlainMpowerMessage({
+    const result = await sendChoiceMpowerMessage({
+      choices: ["Open checklist"],
       messageText,
       userId,
     });
+    console.log(
+      `AmtBrief: checklist chat summary sent messageId=${result.messageId ?? "unknown"} instanceId=${result.instanceId ?? "unknown"}`,
+    );
     rememberChecklistOpenIntent({
       scanId: body.scanId,
       userId,
@@ -65,12 +70,8 @@ export async function POST(request: Request) {
 }
 
 function getMiniAppOpenLink(scanId: string) {
-  const shareBase = process.env.MINIAPP_SHARE_BASE;
-  const serviceId = process.env.MPOWER_SERVICE_UUID ?? process.env.OIDC_CLIENT_ID;
-
-  if (shareBase && serviceId) {
-    return `${shareBase}${serviceId}?open=checklist&scanId=${encodeURIComponent(scanId)}`;
-  }
-
-  return null;
+  return buildMiniAppShareLink({
+    open: "checklist",
+    scanId,
+  });
 }

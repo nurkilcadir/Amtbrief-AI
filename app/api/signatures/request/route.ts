@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { buildMiniAppShareLink } from "@/lib/server/miniapp-links";
 import { hasMpowerConfig, sendSignatureRequest } from "@/lib/server/mpower";
 import { createReplyPdf } from "@/lib/server/reply-pdf";
 import { getCurrentUserId } from "@/lib/server/session";
@@ -63,10 +64,11 @@ export async function POST(request: Request) {
       mpowerInstanceId: result.instanceId,
       mpowerMessageId: result.messageId,
     });
+    console.log(
+      `AmtBrief signature request sent messageId=${result.messageId ?? "unknown"} instanceId=${result.instanceId ?? "unknown"} signatureId=${signature.id}`,
+    );
 
-    const shareBase = process.env.MINIAPP_SHARE_BASE ?? null;
-    const serviceId = process.env.MPOWER_SERVICE_UUID ?? process.env.OIDC_CLIENT_ID ?? null;
-    const chatDeepLink = shareBase && serviceId ? `${shareBase}${serviceId}` : null;
+    const chatDeepLink = buildMiniAppShareLink();
 
     return NextResponse.json({
       ok: true,

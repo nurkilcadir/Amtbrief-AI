@@ -8,7 +8,7 @@ export const runtime = "nodejs";
  * Confirms that the user paid an authority directly (bank transfer to the
  * IBAN we showed them) - we never process the payment ourselves. This just
  * logs the confirmation and, if mPower is configured, sends a chat receipt
- * the user can find again later in the SuperApp.
+ * the user can find again later in the Deutschland App.
  */
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => ({}))) as {

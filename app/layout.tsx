@@ -6,7 +6,7 @@ import { LanguageProvider } from "@/components/LanguageProvider";
 export const metadata: Metadata = {
   title: "AmtBrief AI",
   description:
-    "A 1DE / KOBIL MiniApp that explains German official letters and turns them into clear next steps.",
+    "A Deutschland App MiniApp that explains German official letters and turns them into clear next steps.",
   applicationName: "AmtBrief AI",
 };
 

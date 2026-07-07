@@ -27,7 +27,7 @@ import { AnalysisInputType, AnalysisResult, ReminderStatus, RiskLevel } from "@/
 type MpowerPaymentState =
   | { status: "idle" }
   | { status: "creating" }
-  | { status: "created"; transactionId: string }
+  | { status: "choice_sent" }
   | { status: "error"; message: string };
 
 export function DocumentOverview({
@@ -112,12 +112,17 @@ export function DocumentOverview({
         }),
       });
       const payload = (await response.json().catch(() => ({}))) as {
+        deepLink?: string | null;
+        intentId?: string;
+        messageId?: string;
         ok?: boolean;
+        paymentUrl?: string | null;
+        redirectUrl?: string | null;
         transactionId?: string;
         error?: string;
       };
 
-      if (!response.ok || !payload.ok || !payload.transactionId) {
+      if (!response.ok || !payload.ok) {
         setMpowerPaymentState({
           status: "error",
           message: payload.error || "Payment transaction could not be created.",
@@ -125,7 +130,12 @@ export function DocumentOverview({
         return;
       }
 
-      setMpowerPaymentState({ status: "created", transactionId: payload.transactionId });
+      setMpowerPaymentState({ status: "choice_sent" });
+      const paymentTarget = payload.deepLink || payload.paymentUrl || payload.redirectUrl;
+
+      if (paymentTarget) {
+        window.location.assign(paymentTarget);
+      }
     } catch {
       setMpowerPaymentState({
         status: "error",
@@ -333,20 +343,18 @@ export function DocumentOverview({
           {overview.payment.amountCents ? (
             <div className="mt-3 rounded-2xl border border-dashed border-civic-300 bg-civic-50 p-3">
               <p className="text-xs font-semibold uppercase tracking-[0.1em] text-civic-700">
-                Platform payment demo
+                Deutschland App payment
               </p>
               <p className="mt-1 text-[11px] leading-4 text-slate-500">
-                This creates a real transaction through this app&apos;s own
-                merchant account - it does not actually pay the authority. Use
-                it to see the platform payment flow in action, not as a real
-                bill payment.
+                This creates a platform payment transaction for this app. Use
+                the IBAN transfer above for paying the authority unless your
+                operator has enabled real bill settlement.
               </p>
 
-              {mpowerPaymentState.status === "created" ? (
+              {mpowerPaymentState.status === "choice_sent" ? (
                 <div className="mt-2 flex items-center gap-2 rounded-xl bg-mint px-3 py-2 text-xs font-semibold text-emerald-700">
                   <CheckCircle2 className="h-4 w-4 shrink-0" />
-                  Transaction created ({mpowerPaymentState.transactionId.slice(0, 8)}...) - check
-                  your SuperApp to complete it.
+                  Payment action sent. Open chat and tap Pay now to continue.
                 </div>
               ) : (
                 <button
@@ -357,7 +365,7 @@ export function DocumentOverview({
                 >
                   {mpowerPaymentState.status === "creating"
                     ? "Creating transaction..."
-                    : "Try platform payment (demo)"}
+                    : "Create Deutschland App payment"}
                 </button>
               )}
 

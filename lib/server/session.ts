@@ -16,3 +16,18 @@ export async function getCurrentUserId() {
 
   return process.env.MPOWER_TEST_USER_ID ?? "dev-user";
 }
+
+export async function getRequiredCurrentUserId() {
+  const cookieStore = await cookies();
+  const session = cookieStore.get("user_session")?.value;
+  const verifiedSession = verifyUserSession(session);
+
+  if (!verifiedSession?.sub) {
+    console.warn(
+      `AmtBrief: payment requested without valid user_session cookie (cookiePresent=${Boolean(session)})`,
+    );
+    return null;
+  }
+
+  return verifiedSession.sub;
+}

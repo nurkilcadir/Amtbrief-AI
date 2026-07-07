@@ -30,7 +30,7 @@ import type { T } from "@/lib/i18n";
 type MpowerPaymentState =
   | { status: "idle" }
   | { status: "creating" }
-  | { status: "created"; transactionId: string }
+  | { status: "choice_sent" }
   | { status: "error"; message: string };
 
 export function ChecklistView({ scanId }: { scanId?: string }) {
@@ -87,7 +87,6 @@ export function ChecklistView({ scanId }: { scanId?: string }) {
   const nextOpenIndex = firstOpenIndex === -1 ? analysis.checklist.length : firstOpenIndex;
   const replyHref = scanId ? getScanSectionHref(scanId, "reply") : "/reply";
   const category = analysis.category;
-
   async function handleCopy(field: "iban" | "reference", value: string) {
     try {
       await navigator.clipboard.writeText(value);
@@ -136,12 +135,17 @@ export function ChecklistView({ scanId }: { scanId?: string }) {
         }),
       });
       const payload = (await response.json().catch(() => ({}))) as {
+        deepLink?: string | null;
+        intentId?: string;
+        messageId?: string;
         ok?: boolean;
+        paymentUrl?: string | null;
+        redirectUrl?: string | null;
         transactionId?: string;
         error?: string;
       };
 
-      if (!response.ok || !payload.ok || !payload.transactionId) {
+      if (!response.ok || !payload.ok) {
         setMpowerPaymentState({
           status: "error",
           message: payload.error || "Payment transaction could not be created.",
@@ -150,9 +154,13 @@ export function ChecklistView({ scanId }: { scanId?: string }) {
       }
 
       setMpowerPaymentState({
-        status: "created",
-        transactionId: payload.transactionId,
+        status: "choice_sent",
       });
+      const paymentTarget = payload.deepLink || payload.paymentUrl || payload.redirectUrl;
+
+      if (paymentTarget) {
+        window.location.assign(paymentTarget);
+      }
     } catch {
       setMpowerPaymentState({
         status: "error",
@@ -435,7 +443,7 @@ function PaymentTaskCard({
                 <Landmark className="mt-0.5 h-4 w-4 shrink-0 text-civic-700" />
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.1em] text-civic-700">
-                    SuperApp payment
+                    Deutschland App payment
                   </p>
                   <p className="mt-1 text-[11px] leading-4 text-slate-500">
                     Creates a platform payment transaction for this app. Use the
@@ -445,11 +453,10 @@ function PaymentTaskCard({
                 </div>
               </div>
 
-              {mpowerPaymentState.status === "created" ? (
+              {mpowerPaymentState.status === "choice_sent" ? (
                 <div className="mt-2 flex items-center gap-2 rounded-xl bg-mint px-3 py-2 text-xs font-semibold text-emerald-700">
                   <CheckCircle2 className="h-4 w-4 shrink-0" />
-                  Transaction created ({mpowerPaymentState.transactionId.slice(0, 8)}...) -
-                  check SuperApp.
+                  Payment action sent. Open chat and tap Pay now to continue.
                 </div>
               ) : (
                 <button
@@ -460,7 +467,7 @@ function PaymentTaskCard({
                 >
                   {mpowerPaymentState.status === "creating"
                     ? "Creating payment..."
-                    : "Create SuperApp payment"}
+                    : "Create Deutschland App payment"}
                 </button>
               )}
 

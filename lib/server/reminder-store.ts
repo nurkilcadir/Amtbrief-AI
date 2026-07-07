@@ -1,5 +1,6 @@
 import { createHash } from "crypto";
 import { mkdir, readFile, writeFile } from "fs/promises";
+import { buildMiniAppShareLink } from "@/lib/server/miniapp-links";
 import { AnalysisResult } from "@/lib/types";
 import {
   buildSchedulableReminderPlan,
@@ -379,14 +380,9 @@ function buildReminderMessage({
 }
 
 function buildDeepLink() {
-  const shareBase = process.env.MINIAPP_SHARE_BASE;
-  const serviceId = process.env.MPOWER_SERVICE_UUID ?? process.env.OIDC_CLIENT_ID;
-
-  if (!shareBase || !serviceId) {
-    return "";
-  }
-
-  return `${shareBase}${serviceId}`;
+  return buildMiniAppShareLink({
+    open: "checklist",
+  }) ?? "";
 }
 
 function createReminderId(

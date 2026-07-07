@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { buildMiniAppShareLink } from "@/lib/server/miniapp-links";
 import { hasMpowerConfig, sendPlainMpowerMessage } from "@/lib/server/mpower";
 import { rememberDocumentOpenIntent } from "@/lib/server/open-intents";
+import { applyPaymentChoice } from "@/lib/server/payment-intents";
 import { applyMpowerChoice } from "@/lib/server/reminder-store";
 import { applySignatureCallback } from "@/lib/server/signature-store";
 
@@ -95,6 +97,49 @@ export async function POST(request: Request) {
     return NextResponse.json({ ignored: true });
   }
 
+  const appUrl = (process.env.APP_BASE_URL ?? process.env.APP_URL ?? "").replace(/\/$/, "");
+  const paymentChoice = appUrl
+    ? await applyPaymentChoice({
+        appUrl,
+        responseText,
+        userId,
+      }).catch((error) => {
+        console.error("AmtBrief webhook: payment choice failed", error);
+        return { action: "failed" as const };
+      })
+    : { action: "ignored" as const };
+
+  if (paymentChoice.action === "payment_created") {
+    console.log(
+      `AmtBrief webhook: payment transaction created from choice transactionId=${paymentChoice.result.transactionId} status=${paymentChoice.result.status}`,
+    );
+    return NextResponse.json({
+      ok: true,
+      action: paymentChoice.action,
+      transactionId: paymentChoice.result.transactionId,
+    });
+  }
+
+  if (paymentChoice.action === "manual_transfer_selected") {
+    return NextResponse.json({
+      ok: true,
+      action: paymentChoice.action,
+    });
+  }
+
+  if (paymentChoice.action === "missing_intent" && hasMpowerConfig()) {
+    await sendPlainMpowerMessage({
+      messageText:
+        "I could not find an active AmtBrief AI payment request. Please open the document again and start the payment action from the checklist.",
+      userId,
+    }).catch(() => null);
+
+    return NextResponse.json({
+      ok: true,
+      action: paymentChoice.action,
+    });
+  }
+
   const result = await applyMpowerChoice({
     responseText,
     userId,
@@ -138,28 +183,27 @@ function getSignatureFileName(body: MpowerCallback) {
 }
 
 function buildOpenMiniAppMessage() {
-  const shareBase = process.env.MINIAPP_SHARE_BASE;
-  const serviceId = process.env.MPOWER_SERVICE_UUID ?? process.env.OIDC_CLIENT_ID;
+  const openLink = buildMiniAppShareLink({
+    open: "checklist",
+  });
 
-  if (!shareBase || !serviceId) {
-    return "Open AmtBrief AI in the SuperApp and review your checklist.";
+  if (!openLink) {
+    return "Open AmtBrief AI in the Deutschland App and review your checklist.";
   }
 
-  return `Open AmtBrief AI and review your checklist: ${shareBase}${serviceId}`;
+  return `Open AmtBrief AI and review your checklist: ${openLink}`;
 }
 
 function buildSignedReplyMessage(input: { scanId: string; sourceLabel: string }) {
-  const shareBase = process.env.MINIAPP_SHARE_BASE;
-  const serviceId = process.env.MPOWER_SERVICE_UUID ?? process.env.OIDC_CLIENT_ID;
   const title = input.sourceLabel || "your AmtBrief AI reply";
+  const openLink = buildMiniAppShareLink({
+    open: "reply",
+    scanId: input.scanId,
+  });
 
-  if (!shareBase || !serviceId) {
+  if (!openLink) {
     return `Your signed PDF is ready for ${title}. Open AmtBrief AI and go to the Reply tab.`;
   }
-
-  const openLink = `${shareBase}${serviceId}?open=reply&scanId=${encodeURIComponent(
-    input.scanId,
-  )}`;
 
   return `Your signed PDF is ready for ${title}. Open the Reply tab to download it: ${openLink}`;
 }

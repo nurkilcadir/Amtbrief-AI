@@ -1,6 +1,6 @@
 # AmtBrief AI
 
-AmtBrief AI is a mobile-first partner MiniApp for the 1DE / KOBIL SuperApp ecosystem. It helps people in Germany understand official German letters, detect deadlines and risks, create an action checklist, draft a formal German reply, and confirm the next step.
+AmtBrief AI is a mobile-first partner MiniApp for the Deutschland App ecosystem. It helps people in Germany understand official German letters, detect deadlines and risks, create an action checklist, draft a formal German reply, and confirm the next step.
 
 ## Features
 
@@ -22,7 +22,7 @@ AmtBrief AI is a mobile-first partner MiniApp for the 1DE / KOBIL SuperApp ecosy
 - OpenAI-compatible API route structure:
   - `POST /api/analyze`
   - `POST /api/generate-reply`
-- Server-side reminder infrastructure for mPower SuperApp messages:
+- Server-side reminder infrastructure for mPower Deutschland App messages:
   - `POST /api/reminders/schedule`
   - `POST /api/reminders/handled`
   - `GET|POST /api/reminders/run`
@@ -90,10 +90,10 @@ In production, configure `OPENROUTER_API_KEY` and monitor API route failures bef
 When a user taps the reminder CTA, the app saves the reminder plan server-side.
 In production, `instrumentation.ts` starts an internal reminder scheduler when
 the Next.js container boots. The scheduler checks due reminders every minute and
-sends SuperApp mPower choice messages automatically.
+sends Deutschland App mPower choice messages automatically.
 
 The same mPower configuration is also used for PDF signing. From the reply
-screen, AmtBrief AI creates an official reply PDF, sends it to the SuperApp
+screen, AmtBrief AI creates an official reply PDF, sends it to the Deutschland App
 signature flow, receives the `signatureResponse` callback, and exposes the
 signed PDF for download when mPower returns the signed media id.
 
@@ -145,7 +145,7 @@ so mPower choice responses can mark reminders as handled or snoozed and
 signature responses can mark signed PDFs as ready.
 
 For local development without Silent SSO, set `MPOWER_TEST_USER_ID` to a test
-SuperApp user id. In production, the runner should use the OIDC `sub` from the
+Deutschland App user id. In production, the runner should use the OIDC `sub` from the
 signed `user_session` cookie.
 
 Current reminder and signature storage uses JSON files inside

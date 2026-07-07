@@ -28,6 +28,18 @@ export async function sendReminderChoiceMessage(input: {
   messageText: string;
   userId: string;
 }) {
+  return sendChoiceMpowerMessage({
+    choices: ["I handled it", "Remind me tomorrow", "Open checklist"],
+    messageText: input.messageText,
+    userId: input.userId,
+  });
+}
+
+export async function sendChoiceMpowerMessage(input: {
+  choices: string[];
+  messageText: string;
+  userId: string;
+}) {
   const token = await getMpowerToken();
   const baseUrl = requireEnv("MPOWER_BASE_URL").replace(/\/$/, "");
   const tenant = requireEnv("MPOWER_TENANT");
@@ -48,17 +60,16 @@ export async function sendReminderChoiceMessage(input: {
       version: 3,
       messageContent: {
         messageText: input.messageText,
-        choices: [
-          { text: "I handled it" },
-          { text: "Remind me tomorrow" },
-          { text: "Open checklist" },
-        ],
+        choices: input.choices.map((text) => ({ text })),
       },
     }),
   });
 
   if (!response.ok) {
-    throw new Error(`mPower reminder message failed with status ${response.status}`);
+    const detail = await response.text().catch(() => "");
+    throw new Error(
+      `mPower choice message failed with status ${response.status}${formatDetail(detail)}`,
+    );
   }
 
   return (await response.json()) as MpowerSendResult;
@@ -93,7 +104,10 @@ export async function sendPlainMpowerMessage(input: {
   });
 
   if (!response.ok) {
-    throw new Error(`mPower chat message failed with status ${response.status}`);
+    const detail = await response.text().catch(() => "");
+    throw new Error(
+      `mPower chat message failed with status ${response.status}${formatDetail(detail)}`,
+    );
   }
 
   return (await response.json()) as MpowerSendResult;
@@ -147,7 +161,7 @@ export async function sendSignatureRequest(input: {
     const detail = await response.text().catch(() => "");
     throw new Error(
       `mPower signature request failed with status ${response.status}${
-        detail ? `: ${detail.slice(0, 240)}` : ""
+        formatDetail(detail)
       }`,
     );
   }
@@ -171,7 +185,10 @@ export async function downloadMpowerMedia(mediaId: string) {
   });
 
   if (!response.ok) {
-    throw new Error(`mPower media download failed with status ${response.status}`);
+    const detail = await response.text().catch(() => "");
+    throw new Error(
+      `mPower media download failed with status ${response.status}${formatDetail(detail)}`,
+    );
   }
 
   return {
@@ -200,7 +217,10 @@ async function getMpowerToken() {
   });
 
   if (!response.ok) {
-    throw new Error(`mPower token request failed with status ${response.status}`);
+    const detail = await response.text().catch(() => "");
+    throw new Error(
+      `mPower token request failed with status ${response.status}${formatDetail(detail)}`,
+    );
   }
 
   const data = (await response.json()) as {
@@ -232,4 +252,8 @@ function requireEnv(key: string) {
   }
 
   return value;
+}
+
+function formatDetail(detail: string) {
+  return detail ? `: ${detail.slice(0, 240)}` : "";
 }

@@ -1,11 +1,8 @@
-import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
-import {
-  createPaymentTransaction,
-  hasPaymentMerchantConfig,
-} from "@/lib/server/payment-merchant";
-import { createPaymentRecord } from "@/lib/server/payment-store";
-import { getCurrentUserId } from "@/lib/server/session";
+import { hasPaymentMerchantConfig } from "@/lib/server/payment-merchant";
+import { sendChoiceMpowerMessage, hasMpowerConfig } from "@/lib/server/mpower";
+import { rememberPendingPaymentIntent } from "@/lib/server/payment-intents";
+import { getRequiredCurrentUserId } from "@/lib/server/session";
 
 export const runtime = "nodejs";
 
@@ -27,6 +24,16 @@ export async function POST(request: Request) {
     );
   }
 
+  if (!hasMpowerConfig()) {
+    return NextResponse.json(
+      {
+        error:
+          "mPower chat config is missing. Payment starts from a Deutschland App chat action.",
+      },
+      { status: 503 },
+    );
+  }
+
   const body = (await request.json().catch(() => ({}))) as {
     scanId?: string;
     sourceLabel?: string;
@@ -41,40 +48,55 @@ export async function POST(request: Request) {
     );
   }
 
-  const userId = await getCurrentUserId();
-  const appUrl = (process.env.APP_URL ?? "").replace(/\/$/, "");
+  const userId = await getRequiredCurrentUserId();
+
+  if (!userId) {
+    return NextResponse.json(
+      {
+        error:
+          "Payment can only be started inside the Deutschland App with an active user session. Please close and reopen the MiniApp, then try again.",
+      },
+      { status: 401 },
+    );
+  }
+
+  const appUrl = (process.env.APP_BASE_URL ?? process.env.APP_URL ?? "").replace(/\/$/, "");
 
   if (!appUrl) {
     return NextResponse.json(
-      { error: "APP_URL must be set so mPower can call back this app" },
+      { error: "APP_BASE_URL or APP_URL must be set so mPower can call back this app" },
       { status: 503 },
     );
   }
 
   try {
-    const idempotencyId = randomUUID();
-    const merchantCallback = `${appUrl}/api/webhooks/payment?scanId=${encodeURIComponent(body.scanId)}`;
-
-    const { transactionId, status } = await createPaymentTransaction({
+    const intent = await rememberPendingPaymentIntent({
       amountCents: body.amountCents,
-      idempotencyId,
-      merchantCallback,
-      merchantName: "AmtBrief AI",
-      paymentContent: [
-        { key: body.description || "Payment", value: formatEuro(body.amountCents) },
-      ],
-      userId,
-    });
-
-    await createPaymentRecord({
-      transactionId,
-      userId,
+      description: body.description,
       scanId: body.scanId,
-      sourceLabel: body.sourceLabel ?? "Official letter",
-      amountCents: body.amountCents,
+      sourceLabel: body.sourceLabel,
+      userId,
     });
 
-    return NextResponse.json({ ok: true, transactionId, status });
+    console.log(
+      `AmtBrief: sending payment choice intentId=${intent.id} scanId=${body.scanId} userId=${userId} amountCents=${body.amountCents}`,
+    );
+
+    const message = await sendChoiceMpowerMessage({
+      choices: ["Pay now in Deutschland App", "Use manual bank transfer"],
+      messageText: buildPaymentChoiceMessage({
+        amountCents: body.amountCents,
+        sourceLabel: body.sourceLabel,
+      }),
+      userId,
+    });
+
+    return NextResponse.json({
+      ok: true,
+      intentId: intent.id,
+      messageId: message.messageId,
+      status: "choice_sent",
+    });
   } catch (error) {
     console.error("AmtBrief: payment transaction creation failed", error);
     return NextResponse.json(
@@ -89,4 +111,18 @@ export async function POST(request: Request) {
 
 function formatEuro(cents: number) {
   return `${(cents / 100).toFixed(2).replace(".", ",")} €`;
+}
+
+function buildPaymentChoiceMessage(input: {
+  amountCents: number;
+  sourceLabel?: string;
+}) {
+  const title = input.sourceLabel || "your official letter";
+  return [
+    `AmtBrief AI detected a payment in ${title}.`,
+    `Amount: ${formatEuro(input.amountCents)}`,
+    "",
+    "Choose how you want to continue.",
+    "Use manual bank transfer if you want to pay the authority via the IBAN shown in the letter.",
+  ].join("\n");
 }
